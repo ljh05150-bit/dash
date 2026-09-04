@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>가계부 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{--bg:#0b0d12;--panel:#131722;--line:#242a36;--text:#f5f7fb;--muted:#8d95a5;--good:#37d67a;--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+.wrap{max-width:1100px;margin:auto;padding:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.k{font-size:11px;color:var(--muted)} .v{font-size:24px;font-weight:750;margin-top:6px;letter-spacing:-.03em}
+h1{font-size:22px;margin:6px 0} h2{font-size:14px;margin:0 0 12px}
+input,button{width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:#0f131c;color:white;margin-top:8px}
+button{background:#1a2130;cursor:pointer}
+table{width:100%;border-collapse:collapse} td,th{padding:11px 5px;border-bottom:1px solid var(--line);font-size:11px;text-align:left}
+.num{text-align:right;font-variant-numeric:tabular-nums}.pos{color:var(--good)}.neg{color:var(--bad)}.muted{color:var(--muted);font-size:11px}
+#dash{display:none}.chart{height:260px}
+.stock-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stock-summary>div{background:#0f131c;border:1px solid var(--line);border-radius:14px;padding:13px}
+.stock-value{font-size:20px;font-weight:750;margin-top:5px}
+.stock-name{font-size:12px;font-weight:650}.stock-sub{color:var(--muted);font-size:10px;margin-top:3px}
+.stock-table-wrap{overflow-x:auto}
+.smallbtn{width:auto;padding:9px 12px;margin:0;font-size:11px}
+.title-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.notice{font-size:11px;color:var(--muted);line-height:1.55;margin-top:8px}
+@media(min-width:760px){.grid{grid-template-columns:repeat(4,1fr)}.stock-summary{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div id="auth" class="card">
+  <h1>가계부 로그인</h1>
+  <div class="muted">금융 데이터는 로그인 후에만 보입니다.</div>
+  <input id="email" type="email" placeholder="이메일">
+  <input id="pw" type="password" placeholder="비밀번호">
+  <button onclick="login()">로그인</button>
+  <button onclick="signup()">계정 만들기</button>
+  <div id="msg" class="muted" style="margin-top:8px"></div>
+</div>
+
+<div id="dash">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div><h1>가계부 대시보드</h1><div class="muted" id="updated">-</div></div>
+    <button class="smallbtn" onclick="logout()">로그아웃</button>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="k">순자산</div><div class="v" id="nw">0원</div></div>
+    <div class="card"><div class="k">이번달 순CF</div><div class="v" id="cf">0원</div></div>
+    <div class="card"><div class="k">금융자산</div><div class="v" id="fa">0원</div></div>
+    <div class="card"><div class="k">총부채</div><div class="v" id="debt">0원</div></div>
+  </div>
+
+  <div class="card">
+    <div class="title-row">
+      <h2>내 주식</h2>
+      <button id="seedBtn" class="smallbtn" onclick="seedStocks()">현재 포트폴리오 저장</button>
+    </div>
+    <div class="stock-summary">
+      <div><div class="k">주식 평가액</div><div class="stock-value" id="stockTotal">0원</div></div>
+      <div><div class="k">평가손익</div><div class="stock-value" id="stockPnl">0원</div></div>
+      <div><div class="k">수익률</div><div class="stock-value" id="stockPnlPct">0%</div></div>
+      <div><div class="k">보유 종목</div><div class="stock-value" id="stockCount">0</div></div>
+    </div>
+    <div class="chart"><canvas id="stockChart"></canvas></div>
+    <div class="stock-table-wrap">
+      <table>
+        <thead><tr><th>종목</th><th class="num">현재가</th><th class="num">수량</th><th class="num">평가액</th><th class="num">평가손익</th><th class="num">수익률</th></tr></thead>
+        <tbody id="stockrows"></tbody>
+      </table>
+    </div>
+    <div class="notice" id="stockNotice">현재 스크린샷 기준 스냅샷입니다. Supabase에 저장하면 이후 대시보드가 DB에서 읽습니다.</div>
+  </div>
+
+  <div class="card"><h2>최근 6개월 현금흐름</h2><div class="chart"><canvas id="cfchart"></canvas></div></div>
+  <div class="card"><h2>최근 거래</h2><table><thead><tr><th>일시</th><th>계좌/카드</th><th>거래처</th><th>분류</th><th class="num">금액</th></tr></thead><tbody id="txrows"></tbody></table></div>
+  <div class="card"><h2>부동산</h2><div id="props"></div></div>
+</div>
+</div>
+
+<script>
+const sb = supabase.createClient(
+  "https://ixuxaqerdftadfnkxxui.supabase.co",
+  "sb_publishable_2Q42l50u-YjgBmu5xDvoAA_LUtLhm8j"
+);
+
+const INITIAL_STOCKS = [
+  {ticker:"005930", name:"삼성전자", quantity:32, price:"₩250,000", market_value:8000000, pnl_pct:-17.9},
+  {ticker:"SLDP", name:"솔리드파워", quantity:0, price:"$2.46", market_value:3921773, pnl_pct:-58.4},
+  {ticker:"TQQQ", name:"나스닥 100 3배", quantity:2161, price:"$69.60", market_value:224275734, pnl_pct:133.6},
+  {ticker:"IONQ", name:"아이온큐", quantity:1104, price:"$37.64", market_value:56380396, pnl_pct:24.6},
+  {ticker:"BMNU", name:"비트마인 2배", quantity:2366, price:"$16.98", market_value:54508202, pnl_pct:-63.5}
+];
+const INITIAL_SUMMARY = { value:347086105, pnl:37371493, pnl_pct:12.07 };
+
+let cfChart, stockChart;
+
+function won(n){
+  n=Number(n||0); const a=Math.abs(n),s=n<0?"-":"";
+  if(a>=100000000)return s+(a/100000000).toFixed(a%100000000?2:0)+"억";
+  if(a>=10000)return s+Math.round(a/10000).toLocaleString()+"만";
+  return s+a.toLocaleString()+"원";
+}
+function wonFull(n){return Number(n||0).toLocaleString("ko-KR")+"원"}
+function ym(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function calcPnl(value,pct){
+  pct=Number(pct);
+  if(!Number.isFinite(pct) || pct<=-100) return null;
+  const cost=Number(value)/(1+pct/100);
+  return Number(value)-cost;
+}
+function displayName(ticker){
+  const x=INITIAL_STOCKS.find(s=>s.ticker===ticker);
+  return x?.name || ticker;
+}
+function displayPrice(ticker){
+  const x=INITIAL_STOCKS.find(s=>s.ticker===ticker);
+  return x?.price || "-";
+}
+
+async function signup(){
+  const r=await sb.auth.signUp({email:email.value,password:pw.value});
+  msg.textContent=r.error?r.error.message:"계정 생성 완료. 이메일 인증이 필요하면 메일을 확인하세요.";
+}
+async function login(){
+  const r=await sb.auth.signInWithPassword({email:email.value,password:pw.value});
+  msg.textContent=r.error?r.error.message:"";
+}
+async function logout(){await sb.auth.signOut()}
+sb.auth.onAuthStateChange((_e,s)=>show(!!s));
+sb.auth.getSession().then(r=>show(!!r.data.session));
+function show(on){auth.style.display=on?"none":"block";dash.style.display=on?"block":"none";if(on)load();}
+async function q(table,order){
+  let x=sb.from(table).select("*");
+  if(order)x=x.order(order,{ascending:false});
+  const r=await x;if(r.error)throw r.error;return r.data||[];
+}
+
+async function seedStocks(){
+  seedBtn.disabled=true; seedBtn.textContent="저장 중...";
+  try{
+    const rows=INITIAL_STOCKS.map(x=>({
+      ticker:x.ticker,
+      quantity:x.quantity,
+      market_value:x.market_value,
+      pnl_pct:x.pnl_pct
+    }));
+    const r=await sb.from("securities").upsert(rows,{onConflict:"user_id,ticker"});
+    if(r.error) throw r.error;
+    seedBtn.textContent="저장 완료 ✓";
+    stockNotice.textContent="Supabase securities 테이블에 현재 포트폴리오를 저장했습니다.";
+    await load();
+  }catch(e){
+    seedBtn.textContent="저장 실패";
+    stockNotice.textContent="저장 오류: "+e.message;
+  }finally{
+    setTimeout(()=>{seedBtn.disabled=false;if(seedBtn.textContent!=="저장 완료 ✓")return;seedBtn.textContent="현재 포트폴리오 저장";},2500);
+  }
+}
+
+async function load(){
+ try{
+  const [tx,a,s,p]=await Promise.all([
+    q("transactions","occurred_at"),
+    q("assets","updated_at"),
+    q("securities","updated_at"),
+    q("properties","updated_at")
+  ]);
+
+  // DB에 종목이 아직 없으면 스크린샷 스냅샷을 즉시 보여준다.
+  const stocks=s.length?s:INITIAL_STOCKS;
+
+  const av=a.reduce((z,x)=>z+Number(x.value||0),0), ad=a.reduce((z,x)=>z+Number(x.debt||0),0);
+  const sv=stocks.reduce((z,x)=>z+Number(x.market_value||0),0);
+  const pv=p.reduce((z,x)=>z+Number(x.value||0),0), pd=p.reduce((z,x)=>z+Number(x.debt||0),0);
+
+  nw.textContent=won(av+sv+pv-ad-pd);
+  fa.textContent=won(av+sv);
+  debt.textContent=won(ad+pd);
+
+  const thism=ym(new Date());let income=0,expense=0;
+  tx.forEach(t=>{if(ym(new Date(t.occurred_at))===thism){Number(t.amount)>=0?income+=Number(t.amount):expense+=Math.abs(Number(t.amount))}});
+  cf.textContent=won(income-expense);
+
+  txrows.innerHTML=tx.slice(0,12).map(t=>`<tr>
+    <td>${new Date(t.occurred_at).toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})}</td>
+    <td>${t.account||t.source||""}</td><td>${t.merchant||""}</td><td>${t.category||"미분류"}</td>
+    <td class="num ${Number(t.amount)>=0?"pos":"neg"}">${Number(t.amount).toLocaleString()}</td></tr>`).join("");
+
+  props.innerHTML=p.map(x=>`<div style="padding:10px 0;border-bottom:1px solid #242a36"><b>${x.name}</b><br>
+    <span class="muted">자산 ${won(x.value)} · 대출 ${won(x.debt)} · 월CF ${won(Number(x.monthly_revenue)-Number(x.monthly_interest))}</span></div>`).join("");
+
+  renderStocks(stocks, s.length>0);
+  drawCF(tx);
+  updated.textContent="업데이트 "+new Date().toLocaleString("ko-KR");
+ }catch(e){updated.textContent="데이터 오류: "+e.message;console.error(e)}
+}
+
+function renderStocks(rows,fromDb){
+  let total=rows.reduce((z,x)=>z+Number(x.market_value||0),0);
+  let pnl=0;
+  rows.forEach(x=>{const v=calcPnl(x.market_value,x.pnl_pct);if(v!==null)pnl+=v});
+  let pnlPct=total-pnl!==0 ? pnl/(total-pnl)*100 : 0;
+
+  // 스크린샷 원본의 총합을 우선 표시 (DB 미저장 상태)
+  if(!fromDb){ total=INITIAL_SUMMARY.value;pnl=INITIAL_SUMMARY.pnl;pnlPct=INITIAL_SUMMARY.pnl_pct; }
+
+  stockTotal.textContent=wonFull(total);
+  stockPnl.textContent=(pnl>=0?"+":"")+wonFull(Math.round(pnl));
+  stockPnl.className="stock-value "+(pnl>=0?"pos":"neg");
+  stockPnlPct.textContent=(pnlPct>=0?"+":"")+pnlPct.toFixed(2)+"%";
+  stockPnlPct.className="stock-value "+(pnlPct>=0?"pos":"neg");
+  stockCount.textContent=rows.length+"개";
+
+  stockrows.innerHTML=rows.map(x=>{
+    const name=x.name||displayName(x.ticker);
+    const price=x.price||displayPrice(x.ticker);
+    const qty=Number(x.quantity||0);
+    const itemPnl=calcPnl(x.market_value,x.pnl_pct);
+    return `<tr>
+      <td><div class="stock-name">${name}</div><div class="stock-sub">${x.ticker}</div></td>
+      <td class="num">${price}</td>
+      <td class="num">${qty?qty.toLocaleString():"-"}</td>
+      <td class="num">${wonFull(x.market_value)}</td>
+      <td class="num ${itemPnl>=0?"pos":"neg"}">${itemPnl==null?"-":(itemPnl>=0?"+":"")+wonFull(Math.round(itemPnl))}</td>
+      <td class="num ${Number(x.pnl_pct)>=0?"pos":"neg"}">${x.pnl_pct==null?"-":(Number(x.pnl_pct)>=0?"+":"")+Number(x.pnl_pct).toFixed(1)+"%"}</td>
+    </tr>`;
+  }).join("");
+
+  if(stockChart) stockChart.destroy();
+  stockChart=new Chart(document.getElementById("stockChart"),{
+    type:"doughnut",
+    data:{
+      labels:rows.map(x=>x.name||displayName(x.ticker)),
+      datasets:[{data:rows.map(x=>Number(x.market_value||0)),borderWidth:0}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:"bottom",labels:{color:"#c7ccd6",boxWidth:9,usePointStyle:true,font:{size:10}}},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${wonFull(c.raw)}`}}
+      }
+    }
+  });
+}
+
+function drawCF(tx){
+ const months=[],now=new Date();
+ for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({k:ym(d),l:(d.getMonth()+1)+"월"})}
+ const m=Object.fromEntries(months.map(x=>[x.k,{i:0,e:0}]));
+ tx.forEach(t=>{const k=ym(new Date(t.occurred_at));if(!m[k])return;const a=Number(t.amount);a>=0?m[k].i+=a:m[k].e+=Math.abs(a)});
+ if(cfChart)cfChart.destroy();
+ cfChart=new Chart(document.getElementById("cfchart"),{
+   type:"line",
+   data:{labels:months.map(x=>x.l),datasets:[
+     {label:"수입",data:months.map(x=>m[x.k].i),tension:.35},
+     {label:"지출",data:months.map(x=>m[x.k].e),tension:.35}
+   ]},
+   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#ddd"}}},scales:{x:{ticks:{color:"#999"}},y:{ticks:{color:"#999"}}}}
+ });
+}
+setInterval(()=>{if(dash.style.display!=="none")load()},60000);
+</script>
+</body>
+</html>
