@@ -225,41 +225,28 @@ const CONFIG = {
 };
 
 const demo = {
-  summary:{netWorth:1870420000,netWorthDelta:24530000,monthlyCf:18300000,monthlyCfDelta:1200000,financialAssets:421000000,debt:1270000000},
+  summary:{netWorth:0,netWorthDelta:0,monthlyCf:0,monthlyCfDelta:0,financialAssets:0,debt:0},
   cashflow:[
-    {m:"4월",income:1750,expense:380,invest:1000},
-    {m:"5월",income:1780,expense:420,invest:1000},
-    {m:"6월",income:1820,expense:350,invest:1400},
-    {m:"7월",income:1830,expense:410,invest:1400},
-    {m:"8월",income:1810,expense:390,invest:1400},
-    {m:"9월",income:1830,expense:328,invest:1400}
+    {m:"4월",income:0,expense:0,invest:0},
+    {m:"5월",income:0,expense:0,invest:0},
+    {m:"6월",income:0,expense:0,invest:0},
+    {m:"7월",income:0,expense:0,invest:0},
+    {m:"8월",income:0,expense:0,invest:0},
+    {m:"9월",income:0,expense:0,invest:0}
   ],
   assets:[
-    {name:"부동산 순자산",value:1310000000},
-    {name:"주식",value:210000000},
-    {name:"현금성 자산",value:211000000},
-    {name:"기타",value:139420000}
+    {name:"부동산 순자산",value:0},
+    {name:"주식",value:0},
+    {name:"현금성 자산",value:0},
+    {name:"기타",value:0}
   ],
   networthTrend:[
-    {m:"4월",v:1710000000},{m:"5월",v:1745000000},{m:"6월",v:1778000000},
-    {m:"7월",v:1815000000},{m:"8월",v:1846000000},{m:"9월",v:1870420000}
+    {m:"4월",v:0},{m:"5월",v:0},{m:"6월",v:0},
+    {m:"7월",v:0},{m:"8월",v:0},{m:"9월",v:0}
   ],
-  stocks:[
-    {ticker:"TQQQ",qty:2161,avg:"-",value:0,pnl:null},
-    {ticker:"INOD",qty:1636,avg:"$42.36",value:0,pnl:null},
-    {ticker:"IONQ",qty:1104,avg:"$30.00",value:0,pnl:null},
-    {ticker:"BMNU",qty:2366,avg:"$46.50",value:0,pnl:null}
-  ],
-  properties:[
-    {name:"안성 다가구",value:550000000,debt:350000000,revenue:7770000,interest:1200000},
-    {name:"평택 다가구",value:1700000000,debt:920000000,revenue:11000000,interest:4000000}
-  ],
-  transactions:[
-    {time:"11:21",account:"현대카드",merchant:"스타벅스",category:"식비/카페",amount:-6800},
-    {time:"10:42",account:"NH농협",merchant:"평택 302호",category:"임대수입",amount:700000},
-    {time:"09:32",account:"신협",merchant:"대출이자",category:"금융비용",amount:-1430000},
-    {time:"08:20",account:"토스뱅크",merchant:"증권이체",category:"투자",amount:-7000000}
-  ]
+  stocks:[],
+  properties:[],
+  transactions:[]
 };
 
 let cashflowChart, assetChart, netWorthChart;
@@ -296,9 +283,9 @@ function commonChartOptions(compact=false){
 
 function render(data){
   netWorth.textContent=won(data.summary.netWorth);
-  netWorthDelta.textContent="▲ "+won(data.summary.netWorthDelta)+" 이번 달";
+  netWorthDelta.textContent=data.summary.netWorthDelta ? "▲ "+won(data.summary.netWorthDelta)+" 이번 달" : "금융 연동 후 자동 표시";
   monthlyCf.textContent=won(data.summary.monthlyCf);
-  monthlyCfDelta.textContent="▲ "+won(data.summary.monthlyCfDelta)+" 전월 대비";
+  monthlyCfDelta.textContent=data.summary.monthlyCfDelta ? "▲ "+won(data.summary.monthlyCfDelta)+" 전월 대비" : "금융 연동 후 자동 표시";
   financialAssets.textContent=won(data.summary.financialAssets);
   debt.textContent=won(data.summary.debt);
 
@@ -351,7 +338,7 @@ function render(data){
   });
 
   updatedAt.textContent=new Date().toLocaleString("ko-KR");
-  connText.textContent=CONFIG.mode==="supabase"?"Supabase connected":"Demo data";
+  connText.textContent=CONFIG.mode==="supabase"?"Supabase connected":"연동 준비";
 }
 
 async function refreshData(){
