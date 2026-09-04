@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="가계부 대시보드" />
+  <meta name="theme-color" content="#0b0d12" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Family Financial Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --bg:#0b0d12;
+      --panel:#131722;
+      --panel2:#0f131c;
+      --text:#f5f7fb;
+      --muted:#8d95a5;
+      --line:#242a36;
+      --good:#37d67a;
+      --bad:#ff6b6b;
+      --accent:#eef2f8;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif}
+    body{
+      min-height:100vh;
+      padding-top:env(safe-area-inset-top);
+      padding-bottom:calc(76px + env(safe-area-inset-bottom));
+      background:linear-gradient(180deg,#090b10 0%,#0d1017 100%);
+    }
+    .app{max-width:1180px;margin:0 auto;padding:18px 14px 24px}
+    .header{
+      position:sticky;top:0;z-index:20;
+      padding:12px 0 14px;
+      background:linear-gradient(180deg,rgba(11,13,18,.98) 0%,rgba(11,13,18,.90) 70%,rgba(11,13,18,0) 100%);
+      backdrop-filter:blur(10px);
+    }
+    .header-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+    h1{font-size:22px;line-height:1.15;margin:0;font-weight:750;letter-spacing:-.03em}
+    .subtitle{font-size:12px;color:var(--muted);margin-top:6px}
+    .status{font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+    .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:6px}
+    .section{display:none}
+    .section.active{display:block}
+    .kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:2px 0 12px}
+    .card{
+      background:rgba(19,23,34,.96);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:15px;
+      box-shadow:0 12px 28px rgba(0,0,0,.16)
+    }
+    .kpi .label{font-size:11px;color:var(--muted);margin-bottom:8px}
+    .kpi .value{font-size:23px;font-weight:760;letter-spacing:-.03em}
+    .kpi .delta{font-size:11px;margin-top:7px;color:var(--good)}
+    .title-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+    .title-row h2{font-size:14px;margin:0;font-weight:680}
+    .badge{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 8px;background:#10141d}
+    .stack{display:grid;gap:10px}
+    .chart-wrap{height:240px}
+    .chart-wrap.tall{height:280px}
+    .two-col{display:grid;grid-template-columns:1fr;gap:10px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 6px;border-bottom:1px solid var(--line);font-size:11px}
+    th{color:var(--muted);font-weight:600;text-align:left}
+    td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+    .pos{color:var(--good)} .neg{color:var(--bad)}
+    .pill{display:inline-flex;padding:4px 7px;border-radius:999px;font-size:10px;background:#191f2c;color:#c6ccda}
+    .property-list{display:grid;gap:10px}
+    .property{
+      border:1px solid var(--line);border-radius:15px;padding:14px;background:var(--panel2)
+    }
+    .property-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .property .name{font-weight:680;font-size:13px}
+    .property .cf{font-weight:760;font-size:18px}
+    .property .meta{font-size:11px;color:var(--muted);line-height:1.55;margin-top:8px}
+    .recent-list{display:grid;gap:8px}
+    .tx{
+      display:grid;grid-template-columns:48px 1fr auto;gap:8px;align-items:center;
+      padding:11px 0;border-bottom:1px solid var(--line)
+    }
+    .tx:last-child{border-bottom:0}
+    .tx-time{font-size:10px;color:var(--muted)}
+    .tx-main{min-width:0}
+    .tx-merchant{font-size:12px;font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tx-sub{font-size:10px;color:var(--muted);margin-top:3px}
+    .tx-amount{font-size:12px;font-weight:700;text-align:right}
+    .btn{
+      border:1px solid var(--line);background:#171c27;color:var(--text);
+      border-radius:12px;padding:9px 12px;font-size:11px
+    }
+    .bottom-nav{
+      position:fixed;left:0;right:0;bottom:0;z-index:50;
+      display:grid;grid-template-columns:repeat(4,1fr);
+      padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+      background:rgba(11,13,18,.96);
+      backdrop-filter:blur(18px);
+      border-top:1px solid var(--line)
+    }
+    .nav-btn{
+      border:0;background:transparent;color:var(--muted);
+      padding:8px 4px;font-size:11px;border-radius:12px
+    }
+    .nav-btn.active{color:#fff;background:#161b25}
+    .nav-icon{display:block;font-size:18px;margin-bottom:3px}
+    .footer{font-size:10px;color:var(--muted);padding:8px 2px 0;text-align:center}
+    @media(min-width:760px){
+      .app{padding:24px}
+      .kpi-grid{grid-template-columns:repeat(4,1fr)}
+      .two-col{grid-template-columns:1.5fr 1fr}
+      .property-list{grid-template-columns:repeat(2,1fr)}
+      .chart-wrap{height:300px}
+      .bottom-nav{max-width:620px;left:50%;transform:translateX(-50%);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0}
+      h1{font-size:26px}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="header-row">
+      <div>
+        <h1>가계부 대시보드</h1>
+        <div class="subtitle">현금흐름 · 주식 · 부동산 · 순자산</div>
+      </div>
+      <div class="status">
+        <div><span class="dot"></span><span id="connText">Demo data</span></div>
+        <div id="updatedAt">-</div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="home" class="section active">
+      <div class="kpi-grid">
+        <div class="card kpi">
+          <div class="label">순자산</div>
+          <div class="value" id="netWorth">-</div>
+          <div class="delta" id="netWorthDelta">-</div>
+        </div>
+        <div class="card kpi">
+          <div class="label">이번 달 순CF</div>
+          <div class="value" id="monthlyCf">-</div>
+          <div class="delta" id="monthlyCfDelta">-</div>
+        </div>
+        <div class="card kpi">
+          <div class="label">금융자산</div>
+          <div class="value" id="financialAssets">-</div>
+          <div class="delta">주식 + 현금</div>
+        </div>
+        <div class="card kpi">
+          <div class="label">총부채</div>
+          <div class="value" id="debt">-</div>
+          <div class="delta" style="color:var(--muted)">담보대출 포함</div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="title-row"><h2>월별 현금흐름</h2><span class="badge">최근 6개월</span></div>
+          <div class="chart-wrap tall"><canvas id="cashflowChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="title-row"><h2>최근 거래</h2><button class="btn" onclick="refreshData()">새로고침</button></div>
+          <div class="recent-list" id="recentList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="assets" class="section">
+      <div class="stack">
+        <div class="card">
+          <div class="title-row"><h2>자산 구성</h2><span class="badge">현재</span></div>
+          <div class="chart-wrap"><canvas id="assetChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="title-row"><h2>순자산 추이</h2><span class="badge">최근 6개월</span></div>
+          <div class="chart-wrap"><canvas id="netWorthChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="stocks" class="section">
+      <div class="card">
+        <div class="title-row"><h2>주식 상태</h2><span class="badge">시세 연동 예정</span></div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr><th>종목</th><th class="num">수량</th><th class="num">평균단가</th><th class="num">평가액</th><th class="num">수익률</th></tr>
+            </thead>
+            <tbody id="stockRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="property" class="section">
+      <div class="card">
+        <div class="title-row"><h2>부동산 현황</h2><span class="badge">월 CF</span></div>
+        <div class="property-list" id="propertyList"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="footer">iPhone · Safari 최적화 / 60초 자동 새로고침</div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-target="home"><span class="nav-icon">⌂</span>홈</button>
+  <button class="nav-btn" data-target="assets"><span class="nav-icon">◔</span>자산</button>
+  <button class="nav-btn" data-target="stocks"><span class="nav-icon">↗</span>주식</button>
+  <button class="nav-btn" data-target="property"><span class="nav-icon">▦</span>부동산</button>
+</nav>
+
+<script>
+const CONFIG = {
+  mode: "demo",
+  refreshSeconds: 60,
+  supabaseUrl: "",
+  supabaseAnonKey: ""
+};
+
+const demo = {
+  summary:{netWorth:1870420000,netWorthDelta:24530000,monthlyCf:18300000,monthlyCfDelta:1200000,financialAssets:421000000,debt:1270000000},
+  cashflow:[
+    {m:"4월",income:1750,expense:380,invest:1000},
+    {m:"5월",income:1780,expense:420,invest:1000},
+    {m:"6월",income:1820,expense:350,invest:1400},
+    {m:"7월",income:1830,expense:410,invest:1400},
+    {m:"8월",income:1810,expense:390,invest:1400},
+    {m:"9월",income:1830,expense:328,invest:1400}
+  ],
+  assets:[
+    {name:"부동산 순자산",value:1310000000},
+    {name:"주식",value:210000000},
+    {name:"현금성 자산",value:211000000},
+    {name:"기타",value:139420000}
+  ],
+  networthTrend:[
+    {m:"4월",v:1710000000},{m:"5월",v:1745000000},{m:"6월",v:1778000000},
+    {m:"7월",v:1815000000},{m:"8월",v:1846000000},{m:"9월",v:1870420000}
+  ],
+  stocks:[
+    {ticker:"TQQQ",qty:2161,avg:"-",value:0,pnl:null},
+    {ticker:"INOD",qty:1636,avg:"$42.36",value:0,pnl:null},
+    {ticker:"IONQ",qty:1104,avg:"$30.00",value:0,pnl:null},
+    {ticker:"BMNU",qty:2366,avg:"$46.50",value:0,pnl:null}
+  ],
+  properties:[
+    {name:"안성 다가구",value:550000000,debt:350000000,revenue:7770000,interest:1200000},
+    {name:"평택 다가구",value:1700000000,debt:920000000,revenue:11000000,interest:4000000}
+  ],
+  transactions:[
+    {time:"11:21",account:"현대카드",merchant:"스타벅스",category:"식비/카페",amount:-6800},
+    {time:"10:42",account:"NH농협",merchant:"평택 302호",category:"임대수입",amount:700000},
+    {time:"09:32",account:"신협",merchant:"대출이자",category:"금융비용",amount:-1430000},
+    {time:"08:20",account:"토스뱅크",merchant:"증권이체",category:"투자",amount:-7000000}
+  ]
+};
+
+let cashflowChart, assetChart, netWorthChart;
+
+function won(n){
+  const a=Math.abs(n), s=n<0?"-":"";
+  if(a>=100000000) return s+(a/100000000).toFixed(a%100000000===0?0:2)+"억";
+  if(a>=10000) return s+Math.round(a/10000).toLocaleString("ko-KR")+"만";
+  return s+a.toLocaleString("ko-KR")+"원";
+}
+function moneyFull(n){return (n>=0?"+":"-")+Math.abs(n).toLocaleString("ko-KR")+"원"}
+
+async function getData(){
+  if(CONFIG.mode==="supabase" && CONFIG.supabaseUrl && CONFIG.supabaseAnonKey){
+    const headers={apikey:CONFIG.supabaseAnonKey,Authorization:`Bearer ${CONFIG.supabaseAnonKey}`};
+    const r=await fetch(`${CONFIG.supabaseUrl}/rest/v1/transactions?select=*&order=occurred_at.desc&limit=10`,{headers});
+    if(!r.ok) throw new Error("Supabase error");
+    return {...demo,transactions:await r.json()};
+  }
+  return demo;
+}
+
+function commonChartOptions(compact=false){
+  return {
+    responsive:true,maintainAspectRatio:false,
+    interaction:{mode:"index",intersect:false},
+    scales:{
+      x:{ticks:{color:"#8d95a5",font:{size:10}},grid:{display:false}},
+      y:{ticks:{color:"#8d95a5",font:{size:10},callback:v=>compact?won(v):v.toLocaleString()},grid:{color:"#222734"}}
+    },
+    plugins:{legend:{labels:{color:"#c7ccd6",boxWidth:9,usePointStyle:true,font:{size:10}}}}
+  }
+}
+
+function render(data){
+  netWorth.textContent=won(data.summary.netWorth);
+  netWorthDelta.textContent="▲ "+won(data.summary.netWorthDelta)+" 이번 달";
+  monthlyCf.textContent=won(data.summary.monthlyCf);
+  monthlyCfDelta.textContent="▲ "+won(data.summary.monthlyCfDelta)+" 전월 대비";
+  financialAssets.textContent=won(data.summary.financialAssets);
+  debt.textContent=won(data.summary.debt);
+
+  stockRows.innerHTML=data.stocks.map(s=>`
+    <tr><td><b>${s.ticker}</b></td><td class="num">${s.qty.toLocaleString()}</td>
+    <td class="num">${s.avg}</td><td class="num">${s.value?won(s.value):"-"}</td>
+    <td class="num">${s.pnl===null?"-":s.pnl.toFixed(1)+"%"}</td></tr>`).join("");
+
+  propertyList.innerHTML=data.properties.map(p=>{
+    const cf=p.revenue-p.interest;
+    return `<div class="property">
+      <div class="property-top"><div class="name">${p.name}</div><div class="cf pos">+${won(cf)}</div></div>
+      <div class="meta">자산 ${won(p.value)} · 대출 ${won(p.debt)}<br>월매출 ${won(p.revenue)} · 이자 ${won(p.interest)}</div>
+    </div>`;
+  }).join("");
+
+  recentList.innerHTML=data.transactions.map(t=>`
+    <div class="tx">
+      <div class="tx-time">${t.time??""}</div>
+      <div class="tx-main">
+        <div class="tx-merchant">${t.merchant??""}</div>
+        <div class="tx-sub">${t.account??""} · ${t.category??"미분류"}</div>
+      </div>
+      <div class="tx-amount ${t.amount>=0?"pos":"neg"}">${moneyFull(t.amount)}</div>
+    </div>`).join("");
+
+  if(cashflowChart) cashflowChart.destroy();
+  cashflowChart=new Chart(document.getElementById("cashflowChart"),{
+    type:"line",
+    data:{labels:data.cashflow.map(x=>x.m),datasets:[
+      {label:"수입",data:data.cashflow.map(x=>x.income),tension:.35},
+      {label:"지출",data:data.cashflow.map(x=>x.expense),tension:.35},
+      {label:"투자",data:data.cashflow.map(x=>x.invest),tension:.35}
+    ]},
+    options:commonChartOptions(false)
+  });
+
+  if(assetChart) assetChart.destroy();
+  assetChart=new Chart(document.getElementById("assetChart"),{
+    type:"doughnut",
+    data:{labels:data.assets.map(x=>x.name),datasets:[{data:data.assets.map(x=>x.value),borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{color:"#c7ccd6",boxWidth:9,usePointStyle:true,font:{size:10}}}}}
+  });
+
+  if(netWorthChart) netWorthChart.destroy();
+  netWorthChart=new Chart(document.getElementById("netWorthChart"),{
+    type:"line",
+    data:{labels:data.networthTrend.map(x=>x.m),datasets:[{label:"순자산",data:data.networthTrend.map(x=>x.v),tension:.35}]},
+    options:commonChartOptions(true)
+  });
+
+  updatedAt.textContent=new Date().toLocaleString("ko-KR");
+  connText.textContent=CONFIG.mode==="supabase"?"Supabase connected":"Demo data";
+}
+
+async function refreshData(){
+  try{render(await getData())}
+  catch(e){console.error(e);connText.textContent="Data error"}
+}
+
+document.querySelectorAll(".nav-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    document.getElementById(btn.dataset.target).classList.add("active");
+    window.scrollTo({top:0,behavior:"smooth"});
+  });
+});
+
+refreshData();
+setInterval(refreshData,CONFIG.refreshSeconds*1000);
+</script>
+</body>
+</html>
