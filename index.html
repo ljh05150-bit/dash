@@ -8,6 +8,25 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>우리집 재무 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+/* GitHub Pages old PWA cache cleanup: prevents stale index.html from surviving updates */
+window.addEventListener('load', async () => {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch (e) {
+    console.warn('cache cleanup skipped', e);
+  }
+});
+</script>
+
 <style>
 :root{
   --bg:#06101d;--bg2:#081321;--panel:#0d1a2b;--panel2:#101f32;--line:#244565;
