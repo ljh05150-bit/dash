@@ -120,7 +120,8 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 .loan-list{border:1px solid var(--line2);border-radius:15px;overflow:hidden}.loan-row{display:grid;grid-template-columns:1fr auto auto;gap:9px;align-items:center;padding:12px 11px;background:#0a1828;border-top:1px solid var(--line2)}.loan-row:first-child{border-top:0}.loan-name{font-size:11px;font-weight:720}.loan-amt{font-size:11px;font-weight:800}.loan-rate{font-size:11px;font-weight:850;color:var(--blue2)}.liability-note{font-size:9px;color:#8095ab;margin-top:9px;line-height:1.5}
 
 /* trend */
-.trend-wrap{height:210px;margin-top:8px}.trend-wrap svg{width:100%;height:100%;display:block}.trend-meta{display:flex;justify-content:space-between;gap:10px;align-items:center}.trend-badge{font-size:9px;color:#ff7a81;border:1px solid #583139;background:#261922;border-radius:999px;padding:6px 8px}
+.trend-wrap{margin-top:8px}.trend-wrap svg{width:100%;height:100%;display:block}.trend-meta{display:flex;justify-content:space-between;gap:10px;align-items:center}.trend-badge{font-size:9px;color:#ff7a81;border:1px solid #583139;background:#261922;border-radius:999px;padding:6px 8px}
+.trend-plot{position:relative;height:220px;margin-left:40px;margin-right:12px}.trend-y{position:absolute;right:calc(100% + 7px);transform:translateY(-50%);font-size:10px;color:#8395aa;white-space:nowrap}.trend-dot{position:absolute;width:6px;height:6px;border-radius:50%;background:#ff5b65;transform:translate(-50%,-50%);pointer-events:none}.trend-target{position:absolute;top:0;bottom:0;width:8.33%;transform:translateX(-50%);padding:0;border:0;border-radius:4px;background:transparent;color:#8395aa;font-size:9px;cursor:pointer}.trend-target span{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);white-space:nowrap}.trend-target:hover,.trend-target[aria-pressed=true]{background:#ff5b650b;color:#ff9096}.trend-target:focus-visible{outline:1px solid #789ec8;outline-offset:-1px}.trend-last{position:absolute;transform:translate(-100%,calc(-100% - 9px));font-size:11px;font-weight:750;color:#ff9096;white-space:nowrap;pointer-events:none;background:#101d30cc;border-radius:4px;padding:3px 5px}.trend-readout{min-height:35px;padding-top:12px;text-align:right;font-size:12px;color:#b8c9dd;line-height:1.7;overflow-wrap:anywhere}
 
 /* transactions */
 .tx-list{display:grid}.tx-row{display:grid;grid-template-columns:64px 1fr auto;gap:8px;align-items:center;padding:11px 0;border-top:1px solid var(--line2)}.tx-row:first-child{border-top:0}.tx-time{font-size:9px;color:#748aa1}.tx-main{min-width:0}.tx-merchant{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tx-account{font-size:9px;color:#71869d;margin-top:2px}.tx-amt{font-size:11px;font-weight:800;text-align:right}
@@ -430,11 +431,18 @@ function renderTransactions(tx){txrows.innerHTML=tx.slice(0,10).map(t=>{const a=
 
 function renderTrend(snaps,currentNetWorth){
   const arr=NetWorth.monthlySnapshots(snaps).filter(r=>r.value!==null).slice(-12);
-  if(!arr.length)arr.push({key:ym(new Date()),month:new Date().getMonth()+1,value:currentNetWorth});
-  trendWrap.innerHTML=NetWorth.lineSVG(arr);
+  if(!arr.length)arr.push({key:ym(new Date()),year:new Date().getFullYear(),month:new Date().getMonth()+1,value:currentNetWorth});
+  trendWrap.innerHTML=NetWorth.dashboardChart(arr);
   trendCurrent.textContent='현재 '+won(currentNetWorth);
   if(arr.length>=2){const {rate}=NetWorth.change(arr[arr.length-1],arr[0]);trendBadge.textContent='최근 '+arr.length+'개월'+(rate===null?' · 증감률 계산 불가':' '+(rate>=0?'+':'')+rate.toFixed(1)+'%')}else trendBadge.textContent='월말 자동 저장';
 }
+
+function inspectTrend(event){
+  const target=event.target.closest('[data-trend-label]');if(!target)return;
+  document.getElementById('trendReadout').textContent=target.dataset.trendLabel;
+  trendWrap.querySelectorAll('[data-trend-label]').forEach(button=>button.setAttribute('aria-pressed',String(button===target)));
+}
+['click','pointerover','focusin'].forEach(type=>trendWrap.addEventListener(type,inspectTrend));
 
 async function saveMonthlySnapshot(netWorth,totalAssets,totalDebt){
   try{const d=new Date();const snapshot_date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;const {error}=await sb.from('net_worth_snapshots').upsert({snapshot_date,source:'automatic',net_worth:Math.round(netWorth),total_assets:Math.round(totalAssets),total_debt:Math.round(totalDebt)},{onConflict:'household_id,snapshot_date'});if(error)throw error}catch(e){console.warn('snapshot',e)}

@@ -23,7 +23,17 @@ const client=mockClient(),repo=D.createRepository(client,{});const snaps=await r
 const query=client.calls.find(c=>c.table==='net_worth_snapshots');assert.ok(query.filters.some(([op,k,v])=>op==='eq'&&k==='household_id'&&v==='family'));assert.equal(query.columns,'snapshot_date,net_worth,source,household_id');
 const index=fs.readFileSync('index.html','utf8');const save=index.slice(index.indexOf('async function saveMonthlySnapshot('),index.indexOf('async function load(){'));
 let payload,options,warnings=[];const saveContext={sb:{from(table){assert.equal(table,'net_worth_snapshots');return {async upsert(row,opts){payload=row;options=opts;return {error:null}}}}},console:{warn(...args){warnings.push(args)}}};vm.createContext(saveContext);vm.runInContext(save,saveContext);await saveContext.saveMonthlySnapshot(123456.7,200000,76543.3);assert.equal(options.onConflict,'household_id,snapshot_date');assert.equal(payload.source,'automatic');assert.equal(payload.net_worth,123457);assert.ok(!('household_id' in payload));assert.equal(warnings.length,0);
-const render=index.slice(index.indexOf('function renderTrend('),index.indexOf('async function saveMonthlySnapshot('));const renderContext={NetWorth:N,trendWrap:{},trendCurrent:{},trendBadge:{},won:String};vm.createContext(renderContext);vm.runInContext(render,renderContext);renderContext.renderTrend(all,150000000);assert.equal((renderContext.trendWrap.innerHTML.match(/<circle/g)||[]).length,12);assert.ok(renderContext.trendBadge.textContent.startsWith('최근 12개월'));
+const render=index.slice(index.indexOf('function renderTrend('),index.indexOf('function inspectTrend('));const renderContext={NetWorth:N,trendWrap:{},trendCurrent:{},trendBadge:{},won:String};vm.createContext(renderContext);vm.runInContext(render,renderContext);renderContext.renderTrend(all,150000000);assert.equal((renderContext.trendWrap.innerHTML.match(/class="trend-dot"/g)||[]).length,12);assert.ok(renderContext.trendBadge.textContent.startsWith('최근 12개월'));
+for(const values of [[480000000,581000000],[581000000],[581000001,581000002],[0,0],[-500000000,-400000000],[-100000000,200000000]]){
+  const series=values.map((value,i)=>({year:2026,month:i+1,value})),scale=N.dashboardScale(series);
+  assert.ok(scale.min<Math.min(...values));assert.ok(scale.max>Math.max(...values));
+  assert.ok(scale.ticks.length>=3&&scale.ticks.length<=6);assert.ok(scale.ticks.every(v=>Number.isFinite(v)));
+  const markup=N.dashboardChart(series);assert.ok(!/NaN|Infinity|undefined/.test(markup));
+  assert.ok(markup.includes('aria-label="2026년 1월 · '+values[0].toLocaleString('ko-KR')+'원"'));
+}
+assert.ok(N.dashboardScale([{value:480000000},{value:581000000}]).min>0);
+assert.ok(N.dashboardChart([{year:2026,month:9,value:581000000}]).includes('현재 5.81억'));
+assert.ok(!/NaN|Infinity|undefined/.test(N.dashboardChart([])));
 for(const file of ['net-worth.js','settlement-data.js','settlement.js'])new vm.Script(fs.readFileSync(file,'utf8'));
 assert.ok(index.includes('<script src="./net-worth.js"></script>'));assert.ok(fs.readFileSync('settlement.html','utf8').includes('<script src="./net-worth.js" defer></script>'));
 console.log('PASS: source/null preservation, chronology/month dedupe, 2024–2026 years, gaps/zero/negative values, percent changes, December lookup, household query/cache, automatic household upsert, latest 12 dashboard points, JavaScript syntax.');
