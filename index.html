@@ -239,7 +239,15 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 const PREVIEW_MODE = new URLSearchParams(location.search).get('preview') === '1';
 const SUPABASE_URL = 'https://ixuxaqerdftadfnkxxui.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_2Q42l50u-YjgBmu5xDvoAA_LUtLhm8j';
-const sb = PREVIEW_MODE ? null : supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sb = PREVIEW_MODE ? null : supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{
+    persistSession:true,
+    autoRefreshToken:true,
+    detectSessionInUrl:true,
+    storage:window.localStorage,
+    storageKey:'family-finance-auth'
+  }
+});
 
 const CONFIG = {
   residenceDeposit:100000000,
