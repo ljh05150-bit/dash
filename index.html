@@ -32,7 +32,7 @@ window.addEventListener('load', async () => {
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif}
-body{min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:calc(78px + env(safe-area-inset-bottom));background:
+body{min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);background:
   radial-gradient(circle at 50% -12%,rgba(44,113,204,.23),transparent 34%),
   linear-gradient(180deg,#06101d 0%,#050b13 100%)}
 .wrap{max-width:980px;margin:0 auto;padding:18px 16px 26px}
@@ -124,17 +124,9 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.74);display:none;align-items:flex-end;justify-content:center;z-index:99;padding:12px}.modal-backdrop.show{display:flex}.modal{width:min(520px,100%);max-height:88vh;overflow:auto;background:#0d1a2b;border:1px solid var(--line);border-radius:22px;padding:17px}.modal h3{margin:0 0 4px}.modal label{display:block;font-size:10px;color:var(--muted);margin-top:9px}.modal input{width:100%;background:#081525;border:1px solid var(--line);border-radius:12px;padding:11px;color:white;margin-top:5px}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 
-.bottom-nav{position:fixed;left:0;right:0;bottom:0;height:calc(66px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:rgba(5,12,21,.94);backdrop-filter:blur(18px);border-top:1px solid #162a40;display:flex;align-items:center;justify-content:space-around;z-index:50}.nav-item{font-size:9px;color:#7489a0;text-align:center}.nav-icon{font-size:21px;display:block;margin-bottom:2px}.nav-item.active{color:var(--blue)}
 @media(min-width:720px){.summary-grid{grid-template-columns:repeat(4,1fr)}.rent-grid{grid-template-columns:1fr 1fr}.stock-row{grid-template-columns:1.15fr 145px 1fr 16px}.spark svg{width:135px}.month-bottom{grid-template-columns:150px 1fr}.donut-wrap,.donut{width:145px;height:145px}}
 @media(max-width:370px){.month-bottom{grid-template-columns:112px 1fr}.donut-wrap,.donut{width:110px;height:110px}.donut:after{inset:22px}.stock-row{grid-template-columns:minmax(0,1fr) 76px minmax(102px,.9fr) 12px}.spark svg{width:74px}}
 
-.bottom-nav .nav-item{appearance:none;-webkit-appearance:none;border:0;background:transparent;padding:7px 10px;min-width:58px;font-family:inherit;cursor:pointer}
-.bottom-nav .nav-item:active{transform:scale(.94)}
-.more-menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-.more-menu-btn{appearance:none;-webkit-appearance:none;border:1px solid #254c70;background:linear-gradient(145deg,#10263e,#0b1b2d);color:#eef6ff;border-radius:16px;padding:16px 12px;font-family:inherit;font-size:14px;font-weight:760}
-.more-menu-btn:active{transform:scale(.98);border-color:#4d90ca}
-.section-flash{animation:sectionFlash .8s ease}
-@keyframes sectionFlash{0%{filter:brightness(1)}35%{filter:brightness(1.35)}100%{filter:brightness(1)}}
 
 </style>
 </head>
@@ -162,7 +154,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
     <div class="summary-grid">
       <div class="summary-card"><div class="summary-label"><span class="summary-icon">◉</span>순자산</div><div class="summary-value num" id="nw">-</div><div class="summary-sub good">전체 자산 - 전체 부채</div></div>
       <div class="summary-card summary-clickable" id="availableCard" role="button" tabindex="0"><div class="summary-label"><span class="summary-icon">↗</span>가용자산 <span class="summary-chevron">›</span></div><div class="summary-value num" id="availableNw">-</div><div class="summary-sub good">주식 + 각 계좌 잔액</div></div>
-      <div class="summary-card"><div class="summary-label"><span class="summary-icon">⌂</span>부동산 지분</div><div class="summary-value num" id="propertyEquityTop">-</div><div class="summary-sub">현재 보유지분</div></div>
+      <div class="summary-card"><div class="summary-label"><span class="summary-icon">↶</span><span id="prevCfLabel">지난달 순현금흐름</span></div><div class="summary-value num" id="prevMonthCF">-</div><div class="summary-sub" id="prevMonthCFSub">수입 - 지출</div></div>
       <div class="summary-card"><div class="summary-label"><span class="summary-icon">%</span>총 대출</div><div class="summary-value num" id="loanTotal">-</div><div class="summary-sub">실행 대출만</div></div>
     </div>
 
@@ -215,28 +207,6 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
     <div class="card"><div class="tx-list" id="txrows"></div></div>
   </div>
 </div>
-
-
-
-<div id="moreMenuModal" class="asset-sheet-backdrop" aria-hidden="true">
-  <div class="asset-sheet" role="dialog" aria-modal="true" aria-labelledby="moreMenuTitle">
-    <div class="asset-sheet-handle"></div>
-    <div class="asset-sheet-head">
-      <div>
-        <div class="asset-sheet-title" id="moreMenuTitle">바로가기</div>
-        <div class="asset-sheet-sub">원하는 섹션으로 바로 이동</div>
-      </div>
-      <button class="asset-sheet-close" id="closeMoreMenu" type="button" aria-label="닫기">×</button>
-    </div>
-    <div class="more-menu-grid">
-      <button type="button" class="more-menu-btn" data-jump="monthlySection">월별 결산</button>
-      <button type="button" class="more-menu-btn" data-jump="rentSection">월세 현황</button>
-      <button type="button" class="more-menu-btn" data-jump="loansSection">대출·부채</button>
-      <button type="button" class="more-menu-btn" data-jump="goalsSection">순자산 추이</button>
-    </div>
-  </div>
-</div>
-
 <div id="availableAssetsModal" class="asset-sheet-backdrop" onclick="if(event.target===this)closeAvailableAssets()">
   <div class="asset-sheet" role="dialog" aria-modal="true" aria-labelledby="availableSheetTitle">
     <div class="asset-sheet-handle"></div>
@@ -265,15 +235,6 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
     <div class="modal-actions"><button class="btn" onclick="closeStockEdit()">취소</button><button class="btn" onclick="saveStockEdit()">저장</button></div>
   </div>
 </div>
-
-<div class="bottom-nav" aria-label="하단 메뉴">
-  <button class="nav-item active" data-nav="dashboard" type="button"><span class="nav-icon">⌂</span>대시보드</button>
-  <button class="nav-item" data-nav="assets" type="button"><span class="nav-icon">◔</span>자산</button>
-  <button class="nav-item" data-nav="transactions" type="button"><span class="nav-icon">▤</span>내역</button>
-  <button class="nav-item" data-nav="goals" type="button"><span class="nav-icon">◎</span>목표</button>
-  <button class="nav-item" data-nav="more" type="button"><span class="nav-icon">•••</span>더보기</button>
-</div>
-
 <script>
 const PREVIEW_MODE = new URLSearchParams(location.search).get('preview') === '1';
 const SUPABASE_URL = 'https://ixuxaqerdftadfnkxxui.supabase.co';
@@ -415,9 +376,12 @@ async function loadStockHistory(){
     }
   }catch(e){console.warn(e)}
 }
-async function loadZaritalk(){
-  const currentYM=ym(new Date());
-  try{const r=await fetch(`${ZARITALK_URL}?yearMonth=${currentYM}`);if(!r.ok)throw new Error('zaritalk '+r.status);return await r.json()}catch(e){console.warn(e);return null}
+async function loadZaritalk(yearMonth=ym(new Date())){
+  try{const r=await fetch(`${ZARITALK_URL}?yearMonth=${yearMonth}`);if(!r.ok)throw new Error('zaritalk '+r.status);return await r.json()}catch(e){console.warn(e);return null}
+}
+function zaritalkPaidTotal(z){
+  const props=z?.properties||z?.data?.properties||[];
+  return props.reduce((sum,p)=>sum+Number(p?.paidAmount??0),0);
 }
 async function q(table,order,ascending=false){let x=sb.from(table).select('*');if(order)x=x.order(order,{ascending});const r=await x;if(r.error)throw r.error;return r.data||[]}
 
@@ -477,11 +441,23 @@ async function saveMonthlySnapshot(netWorth,totalAssets,totalDebt){
 async function load(){
   if(PREVIEW_MODE){renderPreview();return}
   try{
-    const histP=loadStockHistory(),zP=loadZaritalk();
+    const now=new Date();const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1);const prevYM=ym(prevDate);
+    const histP=loadStockHistory(),zP=loadZaritalk(),zPrevP=loadZaritalk(prevYM);
     const [tx,a,s,snaps]=await Promise.all([q('transactions','occurred_at'),q('assets','updated_at'),q('securities','updated_at'),q('net_worth_snapshots','snapshot_date',true)]);
-    await histP;const z=await zP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a,stockValue);
-    nw.textContent=won(netWorth);availableNw.textContent=won(available);propertyEquityTop.textContent=won(PROPERTY_EQUITY);loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);propertyEquity.textContent=won(PROPERTY_EQUITY);tenantDepositDebt.textContent='-'+won(tenantDeposits);
-    const thism=ym(new Date());let income=0,expense=0;tx.forEach(t=>{if(ym(new Date(t.occurred_at))!==thism)return;const n=Number(t.amount||0);n>=0?income+=n:expense+=Math.abs(n)});const rentIncome=rents.reduce((sum,r)=>sum+Number(r.paid||0),0);income+=rentIncome;monthTitle.textContent=monthLabel(new Date())+' 월별 결산';monthMeta.textContent=new Date().getFullYear()+'년 '+monthLabel(new Date());monthIncome.textContent=won(income);monthExpense.textContent=won(expense);monthCF.textContent=won(income-expense);monthCF.className='v num '+(income-expense>=0?'good':'neg');renderCategories(tx);renderTransactions(tx);await saveMonthlySnapshot(netWorth,totalAssets,totalDebt);const snaps2=await q('net_worth_snapshots','snapshot_date',true);renderTrend(snaps2,netWorth);updated.textContent='업데이트 '+new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    await histP;const z=await zP;const zPrev=await zPrevP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a,stockValue);
+    nw.textContent=won(netWorth);availableNw.textContent=won(available);loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);propertyEquity.textContent=won(PROPERTY_EQUITY);tenantDepositDebt.textContent='-'+won(tenantDeposits);
+    const thism=ym(now);let income=0,expense=0;tx.forEach(t=>{if(ym(new Date(t.occurred_at))!==thism)return;const n=Number(t.amount||0);n>=0?income+=n:expense+=Math.abs(n)});const rentIncome=rents.reduce((sum,r)=>sum+Number(r.paid||0),0);income+=rentIncome;
+
+    let prevIncome=0,prevExpense=0;
+    tx.forEach(t=>{if(ym(new Date(t.occurred_at))!==prevYM)return;const n=Number(t.amount||0);n>=0?prevIncome+=n:prevExpense+=Math.abs(n)});
+    prevIncome+=zaritalkPaidTotal(zPrev);
+    const prevCF=prevIncome-prevExpense;
+    prevCfLabel.textContent=monthLabel(prevDate)+' 순현금흐름';
+    prevMonthCF.textContent=won(prevCF);
+    prevMonthCF.className='summary-value num '+(prevCF>=0?'good':'neg');
+    prevMonthCFSub.textContent='수입 '+won(prevIncome)+' · 지출 '+won(prevExpense);
+
+    monthTitle.textContent=monthLabel(now)+' 월별 결산';monthMeta.textContent=now.getFullYear()+'년 '+monthLabel(now);monthIncome.textContent=won(income);monthExpense.textContent=won(expense);monthCF.textContent=won(income-expense);monthCF.className='v num '+(income-expense>=0?'good':'neg');renderCategories(tx);renderTransactions(tx);await saveMonthlySnapshot(netWorth,totalAssets,totalDebt);const snaps2=await q('net_worth_snapshots','snapshot_date',true);renderTrend(snaps2,netWorth);updated.textContent='업데이트 '+new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
   }catch(e){updated.textContent='데이터 오류: '+e.message;console.error(e)}
 }
 
@@ -493,106 +469,26 @@ async function seedStocks(){if(PREVIEW_MODE)return;seedBtn.disabled=true;try{con
 function renderPreview(){
   auth.style.display='none';dash.style.display='block';updated.textContent='미리보기 · 실제 index는 Supabase 자동연동';
   liveHistory={};const stockValue=renderStocks(INITIAL_STOCKS);const rents=[{name:'서희빌',value:500000000,loan:347000000,charge:7770000,paid:600000,deposit:61000000,roomCount:15,live:true},{name:'라움하우스',value:1050000000,loan:920000000,charge:7410000,paid:0,deposit:32400000,roomCount:14,live:false}];renderRent(rents);
-  const previewAccounts=[{name:'토스뱅크',value:1100219}];const accountTotal=previewAccounts.reduce((s,x)=>s+assetValue(x),0),tenant=93400000,totalLoans=STATIC_LOANS,totalAssets=accountTotal+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit,totalDebt=totalLoans+tenant,net=totalAssets-totalDebt;const available=renderAvailableAssets(previewAccounts,stockValue);nw.textContent=won(net);availableNw.textContent=won(available);propertyEquityTop.textContent=won(PROPERTY_EQUITY);loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);tenantDepositDebt.textContent='-'+won(tenant);propertyEquity.textContent=won(PROPERTY_EQUITY);
+  const previewAccounts=[{name:'토스뱅크',value:1100219}];const accountTotal=previewAccounts.reduce((s,x)=>s+assetValue(x),0),tenant=93400000,totalLoans=STATIC_LOANS,totalAssets=accountTotal+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit,totalDebt=totalLoans+tenant,net=totalAssets-totalDebt;const available=renderAvailableAssets(previewAccounts,stockValue);nw.textContent=won(net);availableNw.textContent=won(available);prevCfLabel.textContent='8월 순현금흐름';prevMonthCF.textContent='+620만';prevMonthCF.className='summary-value num good';prevMonthCFSub.textContent='수입 1,120만 · 지출 500만';loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);tenantDepositDebt.textContent='-'+won(tenant);propertyEquity.textContent=won(PROPERTY_EQUITY);
   monthTitle.textContent='9월 월별 결산';monthMeta.textContent='2026년 9월';monthIncome.textContent='1,307만';monthExpense.textContent='435만';monthCF.textContent='+872만';const fakeTx=[{occurred_at:'2026-09-05T10:00:00',amount:-135000,category:'식비',merchant:'이마트',account:'토스 부부생활비'},{occurred_at:'2026-09-04T19:00:00',amount:-78000,category:'쇼핑',merchant:'쿠팡',account:'토스 부부생활비'},{occurred_at:'2026-09-03T12:00:00',amount:-62000,category:'육아',merchant:'키즈샵',account:'롯데카드'},{occurred_at:'2026-09-02T09:00:00',amount:-47000,category:'교통',merchant:'주유',account:'현대카드'},{occurred_at:'2026-09-01T18:00:00',amount:-113000,category:'기타',merchant:'생활비',account:'K뱅크 체크카드'}];renderCategories(fakeTx);renderTransactions(fakeTx);const snaps=[];const vals=[480000000,495000000,510000000,525000000,535000000,555000000,570000000,585000000,600000000,612000000,626000000,net];for(let i=0;i<12;i++){const d=new Date(2025,9+i,1);snaps.push({snapshot_date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`,net_worth:vals[i]})}renderTrend(snaps,net);
 }
 
 if(PREVIEW_MODE){renderPreview()}else{sb.auth.onAuthStateChange((_e,s)=>show(!!s));sb.auth.getSession().then(r=>show(!!r.data.session));setInterval(()=>{if(dash.style.display!=='none')load()},60000)}
 
 
-function setActiveNav(name){
-  document.querySelectorAll('.bottom-nav .nav-item').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.nav===name);
-  });
-}
-
-function scrollToSection(id, navName){
-  const el=document.getElementById(id);
-  if(!el) return;
-  setActiveNav(navName);
-  const y=el.getBoundingClientRect().top + window.scrollY - 18;
-  window.scrollTo({top:y,behavior:'smooth'});
-  el.classList.remove('section-flash');
-  void el.offsetWidth;
-  el.classList.add('section-flash');
-}
-
-function showSheet(id){
-  const el=document.getElementById(id);
-  if(!el) return;
-  el.classList.add('show');
-  el.setAttribute('aria-hidden','false');
-  document.body.style.overflow='hidden';
-}
-function hideSheet(id){
-  const el=document.getElementById(id);
-  if(!el) return;
-  el.classList.remove('show');
-  el.setAttribute('aria-hidden','true');
-  if(!document.querySelector('.asset-sheet-backdrop.show')) document.body.style.overflow='';
-}
-
-function bindDashboardInteractions(){
-  const availableCard=document.getElementById('availableCard');
-  if(availableCard){
-    const open=()=>showSheet('availableAssetsModal');
-    availableCard.addEventListener('click', open);
-    availableCard.addEventListener('keydown', e=>{
-      if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}
+function bindAvailableAssetsInteraction(){
+  const card=document.getElementById('availableCard');
+  if(card){
+    card.addEventListener('click',openAvailableAssets);
+    card.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();openAvailableAssets();}
     });
   }
-
-  const availableModal=document.getElementById('availableAssetsModal');
-  if(availableModal){
-    availableModal.addEventListener('click',e=>{
-      if(e.target===availableModal) hideSheet('availableAssetsModal');
-    });
-    const close=availableModal.querySelector('.asset-sheet-close');
-    if(close) close.addEventListener('click',()=>hideSheet('availableAssetsModal'));
-  }
-
-  document.querySelectorAll('.bottom-nav .nav-item').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const nav=btn.dataset.nav;
-      if(nav==='dashboard') scrollToSection('topAnchor','dashboard');
-      else if(nav==='assets') scrollToSection('assetsSection','assets');
-      else if(nav==='transactions') scrollToSection('transactionsSection','transactions');
-      else if(nav==='goals') scrollToSection('goalsSection','goals');
-      else if(nav==='more'){
-        setActiveNav('more');
-        showSheet('moreMenuModal');
-      }
-    });
-  });
-
-  const more=document.getElementById('moreMenuModal');
-  if(more){
-    more.addEventListener('click',e=>{
-      if(e.target===more) hideSheet('moreMenuModal');
-    });
-    const closeMore=document.getElementById('closeMoreMenu');
-    if(closeMore) closeMore.addEventListener('click',()=>hideSheet('moreMenuModal'));
-    more.querySelectorAll('[data-jump]').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const target=btn.dataset.jump;
-        hideSheet('moreMenuModal');
-        setTimeout(()=>scrollToSection(target,'more'),120);
-      });
-    });
-  }
-
-  document.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){
-      hideSheet('availableAssetsModal');
-      hideSheet('moreMenuModal');
-    }
-  });
 }
-
 if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',bindDashboardInteractions,{once:true});
+  document.addEventListener('DOMContentLoaded',bindAvailableAssetsInteraction,{once:true});
 }else{
-  bindDashboardInteractions();
+  bindAvailableAssetsInteraction();
 }
 
 </script>
