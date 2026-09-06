@@ -74,3 +74,77 @@
   }
   global.NetWorth={monthlySnapshots,yearSeries,change,sourceLabel,geometry,lineSVG,dashboardScale,dashboardChart};
 })(window);
+
+/* Dashboard available-funds patch.
+   Gross asset values still feed net worth; this only changes the liquid/available-funds card. */
+(function(global){
+  const money=n=>'₩'+Math.round(Number(n||0)).toLocaleString('ko-KR');
+  const liquid=row=>{
+    const v=Number(row?.liquid_value);
+    if(row?.liquid_value!==null&&row?.liquid_value!==undefined&&Number.isFinite(v))return v;
+    const fallback=Number(row?.value??row?.balance??row?.amount??0);
+    return Number.isFinite(fallback)?fallback:0;
+  };
+  const gross=row=>{
+    const v=Number(row?.value??row?.balance??row?.amount??0);
+    return Number.isFinite(v)?v:0;
+  };
+  const nameOf=row=>String(row?.name??row?.account??row?.label??row?.asset_name??row?.institution??'계좌').trim()||'계좌';
+
+  function patch(){
+    const card=document.getElementById('availableCard');
+    if(card){
+      const label=card.querySelector('.summary-label');
+      if(label)label.innerHTML='<span class="summary-icon">↗</span>가용자금 <span class="summary-chevron">›</span>';
+      const sub=card.querySelector('.summary-sub');
+      if(sub)sub.textContent='주식 + 계좌 실사용 가능액';
+    }
+    const title=document.getElementById('availableSheetTitle');
+    if(title)title.textContent='가용자금 구성';
+    const sheetSub=document.querySelector('#availableAssetsModal .asset-sheet-sub');
+    if(sheetSub)sheetSub.textContent='부동산 지분·거주보증금 제외 · 주식 + 계좌 실사용 가능액';
+    const availableTitle=document.querySelector('#availableAssetsModal .available-title');
+    if(availableTitle)availableTitle.textContent='현재 가용자금';
+    const availableNote=document.querySelector('#availableAssetsModal .available-note');
+    if(availableNote)availableNote.textContent='연금저축은 중도인출 예상세금 차감 후 금액';
+
+    global.renderAvailableAssets=function(accountRows,stockValue){
+      const rows=Array.isArray(accountRows)?accountRows:[];
+      const stock=Math.max(0,Number(stockValue||0));
+      const accountTotal=rows.reduce((sum,row)=>sum+Math.max(0,liquid(row)),0);
+      const total=stock+accountTotal;
+      const totalEl=document.getElementById('availableAssetTotal');
+      if(totalEl)totalEl.textContent=typeof global.won==='function'?global.won(total):money(total);
+
+      const parts=[`<div class="available-row">
+        <div class="available-left"><div class="available-icon">↗</div><div><div class="available-name">주식</div><div class="available-sub">현재가 기준 매도 가능액</div></div></div>
+        <div class="available-value num">${money(stock)}</div>
+      </div>`];
+
+      rows.slice().sort((a,b)=>{
+        const ap=String(a?.asset_type||'')==='pension'?1:0,bp=String(b?.asset_type||'')==='pension'?1:0;
+        return ap-bp||nameOf(a).localeCompare(nameOf(b),'ko');
+      }).forEach(row=>{
+        const g=Math.max(0,gross(row)),v=Math.max(0,liquid(row));
+        const pension=String(row?.asset_type||'').toLowerCase()==='pension';
+        const tax=Math.max(0,Number(row?.liquid_tax_estimate||0));
+        const sub=pension
+          ? `연금저축 · 평가 ${money(g)}${tax>0?' · 예상세금 '+money(tax):''}`
+          : '현재 계좌 잔액';
+        parts.push(`<div class="available-row">
+          <div class="available-left"><div class="available-icon">${pension?'P':'₩'}</div><div><div class="available-name">${nameOf(row)}</div><div class="available-sub">${sub}</div></div></div>
+          <div class="available-value num">${money(v)}</div>
+        </div>`);
+      });
+
+      const list=document.getElementById('availableAssetsList');
+      if(list)list.innerHTML=parts.join('');
+      return total;
+    };
+
+    const dash=document.getElementById('dash');
+    if(typeof global.load==='function'&&dash&&getComputedStyle(dash).display!=='none')global.load();
+  }
+
+  setTimeout(patch,0);
+})(window);
