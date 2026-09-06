@@ -26,7 +26,19 @@ function zaritalkPaidTotal(z){
 }
 function monthlyCashFlow(tx,yearMonth,z){
   let income=0,expense=0;
-  tx.forEach(t=>{if(ym(new Date(t.occurred_at))!==yearMonth)return;const n=Number(t.amount||0);if(!Number.isFinite(n))return;n>=0?income+=n:expense+=Math.abs(n)});
+  tx.forEach(t=>{
+    if(ym(new Date(t.occurred_at))!==yearMonth)return;
+    const n=Number(t.amount||0);
+    if(!Number.isFinite(n))return;
+    const category=String(t.category||'').trim();
+    if(category==='내부이체')return;
+    if(n>0&&String(t.source||'')==='toss_statement_refund'){
+      expense-=n;
+      return;
+    }
+    n>=0?income+=n:expense+=Math.abs(n);
+  });
+  expense=Math.max(0,expense);
   income+=zaritalkPaidTotal(z);
   return {income,expense,net:income-expense};
 }
