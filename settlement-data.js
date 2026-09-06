@@ -1,26 +1,30 @@
 /* Read-only settlement data. Stored months always take precedence. */
 (function(global){
-  const number=value=>value===null||value===undefined||value===''?null:
+  const number=value=>value===null||value===undefined||(typeof value==='string'&&value.trim()==='')?null:
     (typeof value==='number'||typeof value==='string')&&Number.isFinite(Number(value))?Number(value):null;
   const monthKey=(year,month)=>`${year}-${String(month).padStart(2,'0')}`;
   const fields=['total_income','total_expense','total_savings','net_cash_flow','fixed_expense','variable_expense','savings_rate'];
 
   function breakdown(value){
     const result=Object.create(null);
-    const add=(label,raw)=>{const n=number(raw);if(n!==null&&n>=0)result[String(label)]=(result[String(label)]||0)+n};
+    const add=(label,raw)=>{
+      const n=number(raw),name=typeof label==='string'&&label.trim()?label.trim():'미분류';
+      if(n!==null)result[name]=(result[name]||0)+n;
+    };
     if(Array.isArray(value)){
       value.forEach(item=>{
-        if(!item||typeof item!=='object')return;
+        if(Array.isArray(item)){add(item[0],item[1]);return}
+        if(!item||typeof item!=='object'){add(null,item);return}
         const label=item.name??item.category??item.payment_method??item.method??item.label;
-        if(label!=null)add(label,item.amount??item.value??item.total??item.total_expense);
+        add(label,item.amount??item.value??item.total??item.total_expense);
       });
     }else if(value&&typeof value==='object'){
-      Object.entries(value).forEach(([label,v])=>add(label,v&&typeof v==='object'?v.amount??v.value??v.total:v));
+      Object.entries(value).forEach(([label,v])=>add(label,v&&typeof v==='object'?v.amount??v.value??v.total??v.total_expense:v));
     }
     return result;
   }
   function storedRecord(row){
-    const record={year:Number(row.year),month:Number(row.month),source:'stored',partial:false,
+    const record={year:Number(row.year),month:Number(row.month),source:'stored',original_source:row.source??null,source_ref:row.source_ref??null,partial:false,
       categories:breakdown(row.categories),payment_methods:breakdown(row.payment_methods),unclassified_expense:null};
     fields.forEach(key=>record[key]=number(row[key]));
     return record;
@@ -67,7 +71,7 @@
       if(!years.has(year)){
         const pending=(async()=>{
           const {data,error}=await client.from('monthly_settlements')
-            .select('year,month,total_income,total_expense,total_savings,savings_rate,net_cash_flow,fixed_expense,variable_expense,categories,payment_methods,household_id')
+            .select('year,month,total_income,total_expense,total_savings,savings_rate,net_cash_flow,fixed_expense,variable_expense,categories,payment_methods,household_id,source,source_ref')
             .eq('year',year).order('month',{ascending:true});
           if(error)throw error;
           const byMonth=new Map(),households=new Set();

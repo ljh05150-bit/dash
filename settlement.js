@@ -12,9 +12,10 @@
     if(n>=10000)return sign+(n/10000).toLocaleString('ko-KR',{maximumFractionDigits:1})+'만';
     return sign+Math.round(n).toLocaleString('ko-KR')+'원';
   };
+  const FIRST_YEAR=2024;
   const now=new Date(),params=new URLSearchParams(location.search);
   let year=Number(params.get('year'))||now.getFullYear(),month=Number(params.get('month'))||now.getMonth()+1;
-  year=Number.isInteger(year)?Math.max(2026,Math.min(now.getFullYear(),year)):now.getFullYear();
+  year=Number.isInteger(year)?Math.max(FIRST_YEAR,Math.min(now.getFullYear(),year)):now.getFullYear();
   month=Number.isInteger(month)?Math.max(1,Math.min(12,month)):now.getMonth()+1;
   let view=params.get('view')==='year'?'year':'month',client,flow,repository,activeUser=null,requestId=0;
   const colors=['#8c6cff','#4b9dff','#52d1c7','#ffb33c','#ff5b65'];
@@ -27,10 +28,10 @@
     return `<div class="summary-grid">${metric('총수입',r.total_income)}${metric('총지출',r.total_expense)}${metric('순현금흐름',r.net_cash_flow,true)}${metric('저축액',r.total_savings,false,savingsNote)}</div>`;
   }
   function bars(values){
-    const items=Object.entries(values).filter(([,n])=>n>0).sort((a,b)=>b[1]-a[1]);
-    if(!items.length)return '<div class="empty">표시할 지출 내역이 없습니다.</div>';
-    const max=Math.max(...items.map(([,n])=>n));
-    return `<div class="breakdown">${items.map(([name,n],i)=>`<div class="breakdown-row"><div class="breakdown-head"><span>${escape(name)}</span><strong class="num">${escape(full(n))}</strong></div><div class="track"><div class="fill" style="width:${n/max*100}%;background:${colors[i%colors.length]}"></div></div></div>`).join('')}</div>`;
+    const items=Object.entries(values).filter(([,n])=>n!==0).sort((a,b)=>b[1]-a[1]);
+    if(!items.length)return '<div class="empty">표시할 분류별 금액이 없습니다.</div>';
+    const max=Math.max(...items.map(([,n])=>Math.abs(n)));
+    return `<div class="breakdown">${items.map(([name,n],i)=>`<div class="breakdown-row"><div class="breakdown-head"><span>${escape(name)}</span><strong class="num">${escape(full(n))}</strong></div><div class="track"><div class="fill" style="width:${Math.abs(n)/max*100}%;background:${colors[i%colors.length]}"></div></div></div>`).join('')}</div>`;
   }
   function rentWarning(r){
     if(!r.partial)return '';
@@ -49,10 +50,10 @@
     const splitTotal=(fixed||0)+(variable||0);
     const savingsNote=current.source==='automatic'?'미분류 · 구분 정보 없음':current.savings_rate!==null?'저축률 '+current.savings_rate+'%':'';
     el('report').innerHTML=rentWarning(current)+metrics(current,savingsNote)+
-      `<div class="compare"><span>전월 대비 순현금흐름<small>${previous.month}월 ${previous.net_cash_flow===null?'자료 없음':full(previous.net_cash_flow)}${previous.partial?' · 일부 미확인':''}</small></span><strong class="num ${delta>0?'good':delta<0?'negative':'muted'}">${escape(comparison)}</strong></div>`+
+      `<div class="compare"><span>전월 대비 순현금흐름<small>${previous.year}년 ${previous.month}월 ${previous.net_cash_flow===null?'자료 없음':full(previous.net_cash_flow)}${previous.partial?' · 일부 미확인':''}</small></span><strong class="num ${delta>0?'good':delta<0?'negative':'muted'}">${escape(comparison)}</strong></div>`+
       `<h2 class="section-title">고정지출 / 비고정지출</h2><div class="card"><div class="split"><div><div class="label">고정지출</div><div class="value num">${fixed===null?'미분류':short(fixed)}</div>${fixed===null?'':`<p class="small-note">${full(fixed)}</p>`}</div><div><div class="label">비고정지출</div><div class="value num">${variable===null?'미분류':short(variable)}</div>${variable===null?'':`<p class="small-note">${full(variable)}</p>`}</div></div>`+
       (splitTotal>0?`<div class="split-track"><div class="fixed-fill" style="width:${(fixed||0)/splitTotal*100}%"></div><div class="variable-fill" style="width:${(variable||0)/splitTotal*100}%"></div></div>`:'')+
-      (current.source==='automatic'?`<p class="small-note">미분류 지출 ${full(current.unclassified_expense)} · 거래에 구분 정보가 없습니다.</p>`:'')+'</div>'+
+      `<div class="unclassified"><span>미분류</span><strong class="num">${current.unclassified_expense===null?'—':full(current.unclassified_expense)}</strong></div><p class="small-note">${current.source==='automatic'?'거래에 고정·비고정 구분 정보가 없습니다.':'미분류 금액은 별도 저장값이 없어 계산하지 않습니다.'}</p></div>`+
       `<div class="year-grid"><section><h2 class="section-title">카테고리별 지출</h2><div class="card">${bars(current.categories)}</div></section><section><h2 class="section-title">결제수단별 지출</h2><div class="card">${bars(current.payment_methods)}${current.source==='automatic'?'<p class="small-note">거래에 기록된 계좌·출처 기준</p>':''}</div></section></div>`;
   }
   function trend(records,cash=false){
@@ -76,14 +77,14 @@
       `<h2 class="section-title">월별 리스트</h2><div class="card month-list"><div class="list-head"><span>월</span><span>수입</span><span>지출</span><span>순현금흐름</span></div>${records.map(r=>`<button class="month-row" type="button" data-month="${r.month}" aria-label="${r.month}월 결산 보기"><span class="month">${r.month}월</span><span class="cell num" title="${escape(full(r.total_income))}">${short(r.total_income)}<small>${sourceLabel(r)}</small></span><span class="cell num" title="${escape(full(r.total_expense))}">${short(r.total_expense)}</span><span class="cell num ${r.net_cash_flow<0?'negative':'good'}" title="${escape(full(r.net_cash_flow))}">${short(r.net_cash_flow)}${r.partial?'<small>일부 미확인</small>':''}</span></button>`).join('')}</div>`;
   }
   function controls(){
-    el('yearSelect').innerHTML=Array.from({length:now.getFullYear()-2026+1},(_,i)=>2026+i).map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}년</option>`).join('');
+    el('yearSelect').innerHTML=Array.from({length:now.getFullYear()-FIRST_YEAR+1},(_,i)=>FIRST_YEAR+i).map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}년</option>`).join('');
     el('monthSelect').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}" ${m===month?'selected':''}>${m}월</option>`).join('');
     el('monthSelect').hidden=view==='year';
     ['monthlyTab','yearlyTab'].forEach((id,i)=>{const selected=(view==='month')===(i===0);el(id).setAttribute('aria-selected',String(selected));el(id).tabIndex=selected?0:-1});
     el('report').setAttribute('aria-labelledby',view==='month'?'monthlyTab':'yearlyTab');
     el('previous').setAttribute('aria-label',view==='month'?'이전 달':'이전 연도');
     el('next').setAttribute('aria-label',view==='month'?'다음 달':'다음 연도');
-    el('previous').disabled=view==='year'?year<=2026:year===2026&&month===1;
+    el('previous').disabled=view==='year'?year<=FIRST_YEAR:year===FIRST_YEAR&&month===1;
     el('next').disabled=view==='year'?year>=now.getFullYear():year===now.getFullYear()&&month>=12;
     const url=new URL(location.href);url.searchParams.set('view',view);url.searchParams.set('year',year);url.searchParams.set('month',month);history.replaceState(null,'',url);
   }
