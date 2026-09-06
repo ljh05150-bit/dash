@@ -241,6 +241,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
   </div>
 </div>
 <script src="./finance-core.js"></script>
+<script src="./net-worth.js"></script>
 <script>
 const PREVIEW_MODE = new URLSearchParams(location.search).get('preview') === '1';
 const SUPABASE_URL = 'https://ixuxaqerdftadfnkxxui.supabase.co';
@@ -428,15 +429,15 @@ function renderCategories(tx){
 function renderTransactions(tx){txrows.innerHTML=tx.slice(0,10).map(t=>{const a=Number(t.amount||0);return `<div class="tx-row"><div class="tx-time">${new Date(t.occurred_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class="tx-main"><div class="tx-merchant">${t.merchant||t.category||'거래'}</div><div class="tx-account">${t.account||t.source||''} · ${t.category||'미분류'}</div></div><div class="tx-amt ${a>=0?'pos':'neg'}">${a>=0?'+':'-'}${wonFull(Math.abs(a))}</div></div>`}).join('')||'<div class="subtitle">아직 거래내역이 없습니다.</div>'}
 
 function renderTrend(snaps,currentNetWorth){
-  const grouped={};(snaps||[]).forEach(s=>{const d=new Date(s.snapshot_date+'T00:00:00');const k=ym(d);grouped[k]={k,label:(d.getMonth()+1)+'월',value:Number(s.net_worth||0)}});
-  const arr=Object.values(grouped).sort((a,b)=>a.k.localeCompare(b.k)).slice(-12);if(!arr.length)arr.push({k:ym(new Date()),label:monthLabel(new Date()),value:currentNetWorth});
-  const w=720,h=190,pL=28,pR=12,pT=18,pB=30;const vals=arr.map(x=>x.value);let min=Math.min(...vals),max=Math.max(...vals);if(min===max){min*=.92;max*=1.08;if(min===max){min=0;max=1}}const pts=arr.map((x,i)=>{const px=pL+(w-pL-pR)*(arr.length===1?.5:i/(arr.length-1));const py=pT+(h-pT-pB)*(1-(x.value-min)/(max-min));return [px,py]});const poly=pts.map(p=>p.join(',')).join(' ');const area=`${pL},${h-pB} ${poly} ${pts[pts.length-1][0]},${h-pB}`;
-  const labels=arr.map((x,i)=>`<text x="${pts[i][0]}" y="${h-7}" text-anchor="middle" fill="#71869d" font-size="10">${x.label}</text>`).join('');const circles=pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.8" fill="#ff5b65"/>`).join('');trendWrap.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><line x1="${pL}" y1="${pT}" x2="${pL}" y2="${h-pB}" stroke="#1d3853"/><line x1="${pL}" y1="${h-pB}" x2="${w-pR}" y2="${h-pB}" stroke="#1d3853"/><polygon points="${area}" fill="rgba(255,91,101,.10)"/><polyline points="${poly}" fill="none" stroke="#ff5b65" stroke-width="2.5"/>${circles}${labels}</svg>`;
-  trendCurrent.textContent='현재 '+won(currentNetWorth);if(arr.length>=2){const first=arr[0].value,last=arr[arr.length-1].value;const pct=first?((last/first)-1)*100:0;trendBadge.textContent='최근 '+arr.length+'개월 '+(pct>=0?'+':'')+pct.toFixed(1)+'%'}else trendBadge.textContent='월말 자동 저장';
+  const arr=NetWorth.monthlySnapshots(snaps).filter(r=>r.value!==null).slice(-12);
+  if(!arr.length)arr.push({key:ym(new Date()),month:new Date().getMonth()+1,value:currentNetWorth});
+  trendWrap.innerHTML=NetWorth.lineSVG(arr);
+  trendCurrent.textContent='현재 '+won(currentNetWorth);
+  if(arr.length>=2){const {rate}=NetWorth.change(arr[arr.length-1],arr[0]);trendBadge.textContent='최근 '+arr.length+'개월'+(rate===null?' · 증감률 계산 불가':' '+(rate>=0?'+':'')+rate.toFixed(1)+'%')}else trendBadge.textContent='월말 자동 저장';
 }
 
 async function saveMonthlySnapshot(netWorth,totalAssets,totalDebt){
-  try{const d=new Date();const snapshot_date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;await sb.from('net_worth_snapshots').upsert({snapshot_date,net_worth:Math.round(netWorth),total_assets:Math.round(totalAssets),total_debt:Math.round(totalDebt)},{onConflict:'user_id,snapshot_date'})}catch(e){console.warn('snapshot',e)}
+  try{const d=new Date();const snapshot_date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;const {error}=await sb.from('net_worth_snapshots').upsert({snapshot_date,source:'automatic',net_worth:Math.round(netWorth),total_assets:Math.round(totalAssets),total_debt:Math.round(totalDebt)},{onConflict:'household_id,snapshot_date'});if(error)throw error}catch(e){console.warn('snapshot',e)}
 }
 
 async function load(){

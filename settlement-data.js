@@ -74,7 +74,7 @@
   }
 
   function createRepository(client,flow,now=()=>new Date()){
-    const years=new Map(),months=new Map();
+    const years=new Map(),months=new Map(),snapshots=new Map();
     async function storedYear(year){
       if(!years.has(year)){
         const pending=(async()=>{
@@ -141,7 +141,26 @@
       }
       return result;
     }
-    return {getMonth,getYear};
+    async function getSnapshots(year){
+      if(!snapshots.has(year)){
+        const pending=(async()=>{
+          const {householdId}=await storedYear(year);
+          let query=client.from('net_worth_snapshots').select('snapshot_date,net_worth,source,household_id')
+            .gte('snapshot_date',`${year-1}-12-01`).lt('snapshot_date',`${year+1}-01-01`)
+            .order('snapshot_date',{ascending:true});
+          if(householdId)query=query.eq('household_id',householdId);
+          const {data,error}=await query;
+          if(error)throw error;
+          // Validate the household boundary before exposing the series.
+          NetWorth.monthlySnapshots(data||[]);
+          return data||[];
+        })();
+        snapshots.set(year,pending);
+        pending.catch(()=>{if(snapshots.get(year)===pending)snapshots.delete(year)});
+      }
+      return snapshots.get(year);
+    }
+    return {getMonth,getYear,getSnapshots};
   }
   global.SettlementData={number,monthKey,breakdown,storedRecord,automaticRecord,annualSummary,createRepository};
 })(window);

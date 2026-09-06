@@ -38,10 +38,34 @@
     const failed=(r.rent||[]).filter(item=>!item.live).map(item=>`${item.name} ${item.status}`).join(' · ');
     return `<div class="notice warning">${escape(failed||'수납액 확인 필요')}<br>확인된 거래와 실제 수납액만 합산했습니다. 미확인 수납액은 제외되어 있습니다.</div>`;
   }
-  function renderMonth(current,previous){
+  function snapshotKind(snapshot){return snapshot.year===now.getFullYear()&&snapshot.month===now.getMonth()+1?'현재 순자산':'월말 순자산'}
+  function snapshotText(snapshot){
+    return `${snapshot.year}년 ${snapshot.month}월 · ${snapshotKind(snapshot)} · ${snapshot.value===null?'기록 없음':full(snapshot.value)+' · '+NetWorth.sourceLabel(snapshot.source)}`;
+  }
+  function netWorthCard(result){
+    const heading='<h2 class="section-title">순자산</h2>';
+    if(result.error)return heading+'<div class="card"><p class="small-note">순자산 기록을 불러오지 못했습니다. 새로고침해 주세요.</p></div>';
+    const rows=NetWorth.monthlySnapshots(result.rows),key=SettlementData.monthKey(year,month);
+    const prevDate=new Date(year,month-2,1),prevKey=SettlementData.monthKey(prevDate.getFullYear(),prevDate.getMonth()+1);
+    const current=rows.find(r=>r.key===key)||{year,month,value:null,source:null};
+    const previous=rows.find(r=>r.key===prevKey)||{year:prevDate.getFullYear(),month:prevDate.getMonth()+1,value:null,source:null};
+    const {amount,rate}=NetWorth.change(current,previous);
+    const changeText=amount===null?'—':(amount>0?'+':'')+full(amount);
+    const rateText=rate===null?'—':(rate>0?'+':'')+rate.toFixed(2)+'%';
+    return heading+`<div class="card nw-summary"><div class="nw-head"><span>${snapshotKind(current)}</span><span class="nw-source">${current.value===null?'기록 없음':NetWorth.sourceLabel(current.source)}</span></div><div class="nw-total num">${current.value===null?'—':full(current.value)}</div><div class="nw-previous"><span>전월 순자산 · ${previous.year}년 ${previous.month}월</span><strong class="num">${previous.value===null?'기록 없음':full(previous.value)}</strong></div><div class="nw-changes"><div><span>전월 대비 증감액</span><strong class="num ${amount<0?'negative':'good'}">${changeText}</strong></div><div><span>전월 대비 증감률</span><strong class="num ${rate<0?'negative':'good'}">${rateText}</strong></div></div>${rate===null?'<p class="small-note">비교 기록이 없거나 전월 순자산이 0원이면 증감률을 계산하지 않습니다.</p>':''}</div>`;
+  }
+  function netWorthChart(result){
+    const heading='<h2 class="section-title">1~12월 순자산 추이</h2>';
+    if(result.error)return heading+'<div class="card"><p class="small-note">순자산 기록을 불러오지 못했습니다. 새로고침해 주세요.</p></div>';
+    const series=NetWorth.yearSeries(result.rows,year),{points}=NetWorth.geometry(series);
+    const selected=[...series].reverse().find(r=>r.value!==null);
+    const targets=series.map((r,i)=>`<button type="button" class="nw-target" style="left:${points[i].x/720*100}%" data-nw-month="${r.month}" data-nw-label="${escape(snapshotText(r))}" aria-label="${escape(snapshotText(r))}" aria-pressed="${r===selected}"><span>${r.month}</span></button>`).join('');
+    return heading+`<div class="card"><div class="nw-chart-readout num" id="nwReadout" role="status" aria-live="polite">${selected?escape(snapshotText(selected)):'저장된 순자산 기록이 없습니다.'}</div><div class="nw-plot">${NetWorth.lineSVG(series,false)}${targets}</div><p class="small-note">월을 누르거나 가리키면 정확한 금액을 확인할 수 있습니다. 기록이 없는 달은 빈 값으로 표시합니다.</p></div>`;
+  }
+  function renderMonth(current,previous,snapshots){
     el('sourceNote').textContent=sourceLabel(current)+(current.source==='stored'?' · 저장값 기준':current.source==='automatic'?' · 거래 + 실제 수납':'');
     if(['missing','future','unavailable'].includes(current.source)){
-      el('report').innerHTML=rentWarning(current)+`<div class="card"><h2 class="section-title">${year}년 ${month}월</h2><p class="empty">${current.source==='future'?'아직 도래하지 않은 달입니다.':current.source==='unavailable'?'거래나 실제 수납액을 확인할 수 없습니다. 잠시 후 새로고침해 주세요.':'저장된 월별 결산이 없습니다. 과거 실적은 임의로 계산하지 않습니다.'}</p></div>`;
+      el('report').innerHTML=rentWarning(current)+`<div class="card"><h2 class="section-title">${year}년 ${month}월</h2><p class="empty">${current.source==='future'?'아직 도래하지 않은 달입니다.':current.source==='unavailable'?'거래나 실제 수납액을 확인할 수 없습니다. 잠시 후 새로고침해 주세요.':'저장된 월별 결산이 없습니다. 과거 실적은 임의로 계산하지 않습니다.'}</p></div>`+netWorthCard(snapshots);
       return;
     }
     const delta=current.net_cash_flow!==null&&previous.net_cash_flow!==null?current.net_cash_flow-previous.net_cash_flow:null;
@@ -49,7 +73,7 @@
     const fixed=current.fixed_expense,variable=current.variable_expense;
     const splitTotal=(fixed||0)+(variable||0);
     const savingsNote=current.source==='automatic'?'미분류 · 구분 정보 없음':current.savings_rate!==null?'저축률 '+current.savings_rate+'%':'';
-    el('report').innerHTML=rentWarning(current)+metrics(current,savingsNote)+
+    el('report').innerHTML=rentWarning(current)+metrics(current,savingsNote)+netWorthCard(snapshots)+
       `<div class="compare"><span>전월 대비 순현금흐름<small>${previous.year}년 ${previous.month}월 ${previous.net_cash_flow===null?'자료 없음':full(previous.net_cash_flow)}${previous.partial?' · 일부 미확인':''}</small></span><strong class="num ${delta>0?'good':delta<0?'negative':'muted'}">${escape(comparison)}</strong></div>`+
       `<h2 class="section-title">고정지출 / 비고정지출</h2><div class="card"><div class="split"><div><div class="label">고정지출</div><div class="value num">${fixed===null?'미분류':short(fixed)}</div>${fixed===null?'':`<p class="small-note">${full(fixed)}</p>`}</div><div><div class="label">비고정지출</div><div class="value num">${variable===null?'미분류':short(variable)}</div>${variable===null?'':`<p class="small-note">${full(variable)}</p>`}</div></div>`+
       (splitTotal>0?`<div class="split-track"><div class="fixed-fill" style="width:${(fixed||0)/splitTotal*100}%"></div><div class="variable-fill" style="width:${(variable||0)/splitTotal*100}%"></div></div>`:'')+
@@ -67,13 +91,14 @@
     }).join('');
     return `<div class="chart-caption"><span>${cash?'± ':''}${short(max)} 기준</span><span>1–12월</span></div><div class="chart" role="img" aria-label="${cash?'월별 순현금흐름':'월별 수입과 지출'} 추이. 월별 리스트에서 달을 선택하면 정확한 금액을 확인할 수 있습니다.">${cols}</div>`;
   }
-  function renderYear(records){
+  function renderYear(records,snapshots){
     const summary=SettlementData.annualSummary(records);
     el('sourceNote').textContent=`${year}년 · ${summary.count}개월 집계`;
     const savingsNote=summary.savingsMonths?`${summary.savingsMonths}개월 저장값 합계`:'미분류 · 저장된 저축액 없음';
     el('report').innerHTML=(summary.partial?'<div class="notice warning">일부 달의 월세 수납이 미확인입니다. 연간 합계에는 확인된 금액만 포함됩니다.</div>':'')+
       metrics(summary,savingsNote)+`<p class="small-note">저장 실적 ${summary.stored}개월 · 자동집계 ${summary.automatic}개월${summary.missing?' · 자료 없음 '+summary.missing+'개월':''}<br>집계되지 않은 달은 합계에 포함되지 않습니다.</p>`+
       `<div class="year-grid"><section><h2 class="section-title">수입 / 지출 추이</h2><div class="card"><div class="legend"><span>수입</span><span class="expense">지출</span></div>${trend(records)}</div></section><section><h2 class="section-title">월별 순현금흐름</h2><div class="card"><div class="legend"><span class="positive">유입</span><span class="negative">유출</span></div>${trend(records,true)}</div></section></div>`+
+      netWorthChart(snapshots)+
       `<section><h2 class="section-title">연간 수입원별 수입</h2><div class="card">${bars(summary.income_sources)}</div></section>`+
       `<h2 class="section-title">연간 카테고리별 지출</h2><div class="card">${bars(summary.categories)}</div>`+
       `<h2 class="section-title">월별 리스트</h2><div class="card month-list"><div class="list-head"><span>월</span><span>수입</span><span>지출</span><span>순현금흐름</span></div>${records.map(r=>`<button class="month-row" type="button" data-month="${r.month}" aria-label="${r.month}월 결산 보기"><span class="month">${r.month}월</span><span class="cell num" title="${escape(full(r.total_income))}">${short(r.total_income)}<small>${sourceLabel(r)}</small></span><span class="cell num" title="${escape(full(r.total_expense))}">${short(r.total_expense)}</span><span class="cell num ${r.net_cash_flow<0?'negative':'good'}" title="${escape(full(r.net_cash_flow))}">${short(r.net_cash_flow)}${r.partial?'<small>일부 미확인</small>':''}</span></button>`).join('')}</div>`;
@@ -98,12 +123,13 @@
     showStatus('결산을 불러오고 있습니다.');el('sourceNote').textContent='불러오는 중';
     try{
       const repo=repository;
+      const snapshotResult=repo.getSnapshots(year).then(rows=>({rows,error:null})).catch(error=>({rows:[],error}));
       if(view==='year'){
-        const rows=await repo.getYear(year);if(id!==requestId)return;renderYear(rows);
+        const [rows,snapshots]=await Promise.all([repo.getYear(year),snapshotResult]);if(id!==requestId)return;renderYear(rows,snapshots);
       }else{
         const prev=new Date(year,month-2,1);
-        const [current,previous]=await Promise.all([repo.getMonth(year,month),repo.getMonth(prev.getFullYear(),prev.getMonth()+1)]);
-        if(id!==requestId)return;renderMonth(current,previous);
+        const [current,previous,snapshots]=await Promise.all([repo.getMonth(year,month),repo.getMonth(prev.getFullYear(),prev.getMonth()+1),snapshotResult]);
+        if(id!==requestId)return;renderMonth(current,previous,snapshots);
       }
       el('report').hidden=false;el('status').hidden=true;
     }catch(error){
@@ -135,6 +161,12 @@
   el('previous').addEventListener('click',()=>move(-1));el('next').addEventListener('click',()=>move(1));
   el('refresh').addEventListener('click',()=>{if(activeUser){repository=SettlementData.createRepository(client,flow);render()}});
   el('report').addEventListener('click',event=>{const row=event.target.closest('[data-month]');if(row){month=Number(row.dataset.month);view='month';render();el('monthlyTab').focus()}});
+  function inspectNetWorth(event){
+    const target=event.target.closest('[data-nw-month]');if(!target)return;
+    el('nwReadout').textContent=target.dataset.nwLabel;
+    el('report').querySelectorAll('[data-nw-month]').forEach(button=>button.setAttribute('aria-pressed',String(button===target)));
+  }
+  ['click','pointerover','focusin'].forEach(type=>el('report').addEventListener(type,inspectNetWorth));
   controls();
   try{
     client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
