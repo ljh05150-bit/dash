@@ -148,3 +148,54 @@
 
   setTimeout(patch,0);
 })(window);
+
+/* Imported-statement accounting patch for the main dashboard.
+   Internal transfers are not spending/income; card refunds reduce spending. */
+(function(global){
+  function monthKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+  function patchSpendingViews(){
+    if(typeof global.renderCategories==='function'){
+      global.renderCategories=function(tx){
+        const thism=monthKey(new Date()),map={};
+        tx.forEach(t=>{
+          if(monthKey(new Date(t.occurred_at))!==thism)return;
+          const category=String(t.category||'미분류').trim()||'미분류';
+          if(category==='내부이체')return;
+          const amount=Number(t.amount||0);
+          if(!Number.isFinite(amount)||amount===0)return;
+          if(amount<0)map[category]=(map[category]||0)+Math.abs(amount);
+          else if(String(t.source||'')==='toss_statement_refund')map[category]=(map[category]||0)-amount;
+        });
+        Object.keys(map).forEach(key=>{if(map[key]<=0)delete map[key]});
+        const total=Object.values(map).reduce((sum,n)=>sum+n,0);
+        let items=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        if(!items.length)items=[['미분류',1]];
+        const colors=['#8c6cff','#ff5b65','#4b9dff','#ffb33c','#52d1c7'];let acc=0;
+        const seg=items.map(([k,v],i)=>{const pct=total>0?v/total*100:(i===0?100:0);const st=acc;acc+=pct;return `${colors[i]} ${st}% ${acc}%`});
+        const donut=document.getElementById('expenseDonut');
+        if(donut)donut.style.background=`conic-gradient(${seg.join(',')})`;
+        const list=document.getElementById('categoryList');
+        if(list)list.innerHTML=items.map(([k,v],i)=>{const pct=total>0?v/total*100:(i===0?100:0);return `<div class="cat-row"><span class="cat-dot" style="background:${colors[i]}"></span><span>${k}</span><span class="cat-val">${pct.toFixed(0)}%</span></div>`}).join('');
+      };
+    }
+    if(typeof global.renderTransactions==='function'){
+      global.renderTransactions=function(tx){
+        const visible=(tx||[]).filter(t=>{
+          const category=String(t.category||'').trim();
+          const amount=Number(t.amount||0);
+          return category!=='내부이체'&&(amount<0||String(t.source||'')==='toss_statement_refund');
+        }).slice(0,10);
+        const rows=document.getElementById('txrows');
+        if(!rows)return;
+        rows.innerHTML=visible.map(t=>{
+          const amount=Number(t.amount||0),refund=amount>0&&String(t.source||'')==='toss_statement_refund';
+          const merchant=(t.merchant||t.category||'거래')+(refund?' · 환불':'');
+          return `<div class="tx-row"><div class="tx-time">${new Date(t.occurred_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class="tx-main"><div class="tx-merchant">${merchant}</div><div class="tx-account">${t.account||t.source||''} · ${t.category||'미분류'}</div></div><div class="tx-amt ${amount>=0?'pos':'neg'}">${amount>=0?'+':'-'}${typeof global.wonFull==='function'?global.wonFull(Math.abs(amount)):'₩'+Math.abs(Math.round(amount)).toLocaleString('ko-KR')}</div></div>`;
+        }).join('')||'<div class="subtitle">아직 소비내역이 없습니다.</div>';
+      };
+    }
+    const dash=document.getElementById('dash');
+    if(typeof global.load==='function'&&dash&&getComputedStyle(dash).display!=='none')global.load();
+  }
+  setTimeout(patchSpendingViews,0);
+})(window);
