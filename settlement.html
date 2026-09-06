@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06101d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>결산 · 우리집 재무 대시보드</title>
+<link rel="stylesheet" href="./settlement.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./finance-core.js" defer></script>
+<script src="./settlement-data.js" defer></script>
+<script src="./settlement.js" defer></script>
+</head>
+<body>
+<main class="wrap">
+  <header class="topbar"><a class="back" href="./index.html" aria-label="대시보드로 돌아가기">‹</a><h1>결산</h1><span class="header-note">우리집 재무</span></header>
+  <div class="tabs" role="tablist" aria-label="결산 기간">
+    <button id="monthlyTab" role="tab" aria-selected="true" aria-controls="report" type="button">월별</button>
+    <button id="yearlyTab" role="tab" aria-selected="false" aria-controls="report" tabindex="-1" type="button">연별</button>
+  </div>
+  <div class="period-nav">
+    <button id="previous" class="arrow" type="button" aria-label="이전 달">‹</button>
+    <div class="period-select"><select id="yearSelect" aria-label="연도"></select><select id="monthSelect" aria-label="월"></select></div>
+    <button id="next" class="arrow" type="button" aria-label="다음 달">›</button>
+  </div>
+  <div class="report-meta"><span id="sourceNote">로그인 세션 확인 중</span><button id="refresh" type="button">새로고침 ↻</button></div>
+  <div id="status" class="notice" role="status" aria-live="polite">결산을 불러오고 있습니다.</div>
+  <div id="report" role="tabpanel" aria-labelledby="monthlyTab" aria-busy="true" tabindex="0" hidden></div>
+  <noscript><p class="notice">결산을 확인하려면 JavaScript를 켜 주세요.</p></noscript>
+  <footer>우리집의 한 달, 차곡차곡 쌓이는 기록</footer>
+</main>
+</body>
+</html>
