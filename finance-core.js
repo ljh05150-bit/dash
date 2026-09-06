@@ -24,6 +24,13 @@ async function loadZaritalk(yearMonth=ym(new Date())){
 function zaritalkPaidTotal(z){
   return normalizeRent(z).reduce((sum,r)=>sum+(r.live?r.paid:0),0);
 }
+function bankRentTotal(tx,yearMonth){
+  return tx.reduce((sum,t)=>{
+    if(ym(new Date(t.occurred_at))!==yearMonth)return sum;
+    const n=Number(t.amount||0),category=String(t.category||'').trim();
+    return Number.isFinite(n)&&n>0&&category==='월세수입'?sum+n:sum;
+  },0);
+}
 function monthlyCashFlow(tx,yearMonth,z){
   let income=0,expense=0;
   tx.forEach(t=>{
@@ -39,8 +46,10 @@ function monthlyCashFlow(tx,yearMonth,z){
     n>=0?income+=n:expense+=Math.abs(n);
   });
   expense=Math.max(0,expense);
-  income+=zaritalkPaidTotal(z);
-  return {income,expense,net:income-expense};
+  const bankRent=bankRentTotal(tx,yearMonth);
+  const zaritalkRent=zaritalkPaidTotal(z);
+  income+=Math.max(0,zaritalkRent-bankRent);
+  return {income,expense,net:income-expense,bankRent,zaritalkRent,rentIncome:Math.max(bankRent,zaritalkRent)};
 }
 function normalizeRent(z){
   const props=z?.ok===true&&Array.isArray(z.properties)?z.properties.filter(p=>p&&typeof p==='object'):[];
@@ -52,7 +61,7 @@ function normalizeRent(z){
     return {name:cfg.name,value:cfg.value,loan:cfg.loan,charge:amount(row?.monthlyCharge??row?.monthlyRent)??cfg.fallbackCharge,paid:status==='자리톡 LIVE'?paid:null,deposit:amount(row?.totalDeposit)??cfg.fallbackDeposit,roomCount:amount(row?.roomCount)||0,live:status==='자리톡 LIVE',status};
   });
 }
-    return {loadZaritalk,normalizeRent,zaritalkPaidTotal,monthlyCashFlow};
+    return {loadZaritalk,normalizeRent,zaritalkPaidTotal,bankRentTotal,monthlyCashFlow};
   }
   global.FinanceCore={createCashFlow};
 })(window);
