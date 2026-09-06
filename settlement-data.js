@@ -42,16 +42,24 @@
     tx.forEach(row=>{
       const d=new Date(row.occurred_at),n=number(row.amount);
       if(d.getFullYear()!==year||d.getMonth()+1!==month||n===null)return;
-      if(n>0){
-        const source=String(row.category||'').trim()||'미분류';
-        incomeSources[source]=(incomeSources[source]||0)+n;
+      const category=String(row.category||'미분류').trim()||'미분류';
+      if(category==='내부이체'||n===0)return;
+      const payment=String(row.account||row.source||'미분류');
+      if(n>0&&String(row.source||'')==='toss_statement_refund'){
+        categories[category]=(categories[category]||0)-n;
+        payments[payment]=(payments[payment]||0)-n;
         return;
       }
-      if(n===0)return;
-      const category=String(row.category||'미분류'),payment=String(row.account||row.source||'미분류');
+      if(n>0){
+        incomeSources[category]=(incomeSources[category]||0)+n;
+        return;
+      }
       categories[category]=(categories[category]||0)+Math.abs(n);
       payments[payment]=(payments[payment]||0)+Math.abs(n);
     });
+    for(const map of [categories,payments]){
+      Object.keys(map).forEach(key=>{if(map[key]<=0)delete map[key]});
+    }
     const rentIncome=flow.zaritalkPaidTotal(z);
     if(rentIncome>0)incomeSources['월세수입']=(incomeSources['월세수입']||0)+rentIncome;
     return {year,month,source:'automatic',partial,rent,total_income:cash.income,total_expense:cash.expense,
