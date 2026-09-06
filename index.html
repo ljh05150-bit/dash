@@ -183,6 +183,9 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
     </div>
 
     </a>
+    <div class="section-title" id="transactionsSection"><h2>최근 소비내역</h2><span class="section-meta">결제수단 기준</span></div>
+    <div class="card"><div class="tx-list" id="txrows"></div></div>
+
     <div class="section-title" id="assetsSection"><h2>내 주식</h2><span class="pill"><span class="dot"></span>실시간</span></div>
     <div class="card stock-widget">
       <div class="stock-head"><div><div class="stock-total num" id="stockTotal">₩0</div><div class="stock-pnl" id="stockPnlSummary">₩0 (0.00%)</div></div><button id="seedBtn" class="btn small" onclick="seedStocks()">포트폴리오 저장</button></div>
@@ -209,8 +212,6 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
       <div class="trend-wrap" id="trendWrap"></div>
     </div>
 
-    <div class="section-title" id="transactionsSection"><h2>최근 내역</h2><span class="section-meta">결제수단 기준</span></div>
-    <div class="card"><div class="tx-list" id="txrows"></div></div>
   </div>
 </div>
 <div id="availableAssetsModal" class="asset-sheet-backdrop" onclick="if(event.target===this)closeAvailableAssets()">
