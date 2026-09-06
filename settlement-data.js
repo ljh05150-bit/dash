@@ -60,8 +60,8 @@
     for(const map of [categories,payments]){
       Object.keys(map).forEach(key=>{if(map[key]<=0)delete map[key]});
     }
-    const rentIncome=flow.zaritalkPaidTotal(z);
-    if(rentIncome>0)incomeSources['월세수입']=(incomeSources['월세수입']||0)+rentIncome;
+    const rentTopUp=Math.max(0,Number(cash.zaritalkRent||0)-Number(cash.bankRent||0));
+    if(rentTopUp>0)incomeSources['월세수입']=(incomeSources['월세수입']||0)+rentTopUp;
     return {year,month,source:'automatic',partial,rent,total_income:cash.income,total_expense:cash.expense,
       net_cash_flow:cash.net,total_savings:null,savings_rate:null,fixed_expense:null,variable_expense:null,
       unclassified_expense:cash.expense,categories,payment_methods:payments,income_sources:incomeSources};
