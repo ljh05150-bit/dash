@@ -25,12 +25,12 @@
   }
   function storedRecord(row){
     const record={year:Number(row.year),month:Number(row.month),source:'stored',original_source:row.source??null,source_ref:row.source_ref??null,partial:false,
-      categories:breakdown(row.categories),payment_methods:breakdown(row.payment_methods),unclassified_expense:null};
+      categories:breakdown(row.categories),payment_methods:breakdown(row.payment_methods),income_sources:breakdown(row.income_sources),unclassified_expense:null};
     fields.forEach(key=>record[key]=number(row[key]));
     return record;
   }
   function emptyRecord(year,month,source='missing'){
-    return {year,month,source,partial:source==='unavailable',categories:{},payment_methods:{},unclassified_expense:null,
+    return {year,month,source,partial:source==='unavailable',categories:{},payment_methods:{},income_sources:{},unclassified_expense:null,
       ...Object.fromEntries(fields.map(key=>[key,null]))};
   }
   function automaticRecord(tx,year,month,z,flow){
@@ -38,17 +38,25 @@
     const partial=rent.some(row=>!row.live);
     if(!tx.length&&!rent.some(row=>row.live))return {...emptyRecord(year,month,'unavailable'),rent};
     const cash=flow.monthlyCashFlow(tx,monthKey(year,month),z);
-    const categories=Object.create(null),payments=Object.create(null);
+    const categories=Object.create(null),payments=Object.create(null),incomeSources=Object.create(null);
     tx.forEach(row=>{
       const d=new Date(row.occurred_at),n=number(row.amount);
-      if(d.getFullYear()!==year||d.getMonth()+1!==month||n===null||n>=0)return;
+      if(d.getFullYear()!==year||d.getMonth()+1!==month||n===null)return;
+      if(n>0){
+        const source=String(row.category||'').trim()||'미분류';
+        incomeSources[source]=(incomeSources[source]||0)+n;
+        return;
+      }
+      if(n===0)return;
       const category=String(row.category||'미분류'),payment=String(row.account||row.source||'미분류');
       categories[category]=(categories[category]||0)+Math.abs(n);
       payments[payment]=(payments[payment]||0)+Math.abs(n);
     });
+    const rentIncome=flow.zaritalkPaidTotal(z);
+    if(rentIncome>0)incomeSources['월세수입']=(incomeSources['월세수입']||0)+rentIncome;
     return {year,month,source:'automatic',partial,rent,total_income:cash.income,total_expense:cash.expense,
       net_cash_flow:cash.net,total_savings:null,savings_rate:null,fixed_expense:null,variable_expense:null,
-      unclassified_expense:cash.expense,categories,payment_methods:payments};
+      unclassified_expense:cash.expense,categories,payment_methods:payments,income_sources:incomeSources};
   }
   function annualSummary(records){
     const available=records.filter(r=>r.source==='stored'||r.source==='automatic');
@@ -59,7 +67,7 @@
       return result;
     };
     return {total_income:sum('total_income'),total_expense:sum('total_expense'),net_cash_flow:sum('net_cash_flow'),
-      total_savings:sum('total_savings'),categories:combine('categories'),count:available.length,
+      total_savings:sum('total_savings'),categories:combine('categories'),income_sources:combine('income_sources'),count:available.length,
       savingsMonths:available.filter(r=>r.total_savings!==null).length,
       stored:available.filter(r=>r.source==='stored').length,automatic:available.filter(r=>r.source==='automatic').length,
       partial:records.some(r=>r.partial),missing:records.filter(r=>r.source==='missing').length};
@@ -71,7 +79,7 @@
       if(!years.has(year)){
         const pending=(async()=>{
           const {data,error}=await client.from('monthly_settlements')
-            .select('year,month,total_income,total_expense,total_savings,savings_rate,net_cash_flow,fixed_expense,variable_expense,categories,payment_methods,household_id,source,source_ref')
+            .select('year,month,total_income,total_expense,total_savings,savings_rate,net_cash_flow,fixed_expense,variable_expense,categories,payment_methods,income_sources,household_id,source,source_ref')
             .eq('year',year).order('month',{ascending:true});
           if(error)throw error;
           const byMonth=new Map(),households=new Set();
