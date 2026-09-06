@@ -199,3 +199,148 @@
   }
   setTimeout(patchSpendingViews,0);
 })(window);
+
+/* Direct month navigation on the dashboard settlement card. */
+(function(global){
+  const FIRST_YEAR=2024;
+  let selected=null;
+  let rendering=false;
+
+  function currentMonth(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)}
+  function monthKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+  function monthText(d){return (d.getMonth()+1)+'월'}
+  function sameMonth(a,b){return a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()}
+  function money(n){
+    if(typeof global.won==='function')return global.won(n);
+    n=Number(n||0);const a=Math.abs(n),s=n<0?'-':'';
+    if(a>=100000000)return s+(a/100000000).toFixed(a%100000000?2:0)+'억';
+    if(a>=10000)return s+Math.round(a/10000).toLocaleString('ko-KR')+'만';
+    return s+Math.round(a).toLocaleString('ko-KR')+'원';
+  }
+  function setValue(id,value,cls=''){
+    const el=document.getElementById(id);if(!el)return;
+    el.textContent=value===null?'-':money(value);
+    if(cls)el.className=cls;
+  }
+  function normalizeStoredCategories(value){
+    const map={};
+    const add=(name,raw)=>{const n=Number(raw);if(Number.isFinite(n)&&n>0)map[String(name||'미분류')]=(map[String(name||'미분류')]||0)+n};
+    if(Array.isArray(value))value.forEach(item=>{if(Array.isArray(item))add(item[0],item[1]);else if(item&&typeof item==='object')add(item.name??item.category??item.label,item.amount??item.value??item.total)});
+    else if(value&&typeof value==='object')Object.entries(value).forEach(([k,v])=>add(k,v&&typeof v==='object'?v.amount??v.value??v.total:v));
+    return map;
+  }
+  function txCategoryMap(tx){
+    const map={};
+    (tx||[]).forEach(t=>{
+      const cat=String(t.category||'미분류').trim()||'미분류';
+      if(cat==='내부이체')return;
+      const n=Number(t.amount||0);if(!Number.isFinite(n)||n===0)return;
+      if(n<0)map[cat]=(map[cat]||0)+Math.abs(n);
+      else if(String(t.source||'')==='toss_statement_refund')map[cat]=(map[cat]||0)-n;
+    });
+    Object.keys(map).forEach(k=>{if(map[k]<=0)delete map[k]});
+    return map;
+  }
+  function renderCategoryMap(map){
+    const total=Object.values(map).reduce((s,n)=>s+Number(n||0),0);
+    let items=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    if(!items.length)items=[['자료 없음',1]];
+    const colors=['#8c6cff','#ff5b65','#4b9dff','#ffb33c','#52d1c7'];let acc=0;
+    const seg=items.map(([k,v],i)=>{const pct=total>0?v/total*100:(i===0?100:0),start=acc;acc+=pct;return `${colors[i]} ${start}% ${acc}%`});
+    const donut=document.getElementById('expenseDonut');if(donut)donut.style.background=`conic-gradient(${seg.join(',')})`;
+    const list=document.getElementById('categoryList');if(list)list.innerHTML=items.map(([k,v],i)=>{const pct=total>0?v/total*100:(i===0?100:0);return `<div class="cat-row"><span class="cat-dot" style="background:${colors[i]}"></span><span>${k}</span><span class="cat-val">${total>0?pct.toFixed(0)+'%':'-'}</span></div>`}).join('');
+  }
+  function updateHeader(date,sourceLabel){
+    const label=monthText(date)+' 월별 결산';
+    const section=document.querySelector('#monthlySection h2');if(section)section.textContent=label;
+    const title=document.getElementById('monthTitle');if(title)title.textContent=label;
+    const meta=document.getElementById('monthMeta');if(meta)meta.textContent=date.getFullYear()+'년 '+monthText(date);
+    const link=document.querySelector('.settlement-link');if(link)link.href=`./settlement.html?view=month&year=${date.getFullYear()}&month=${date.getMonth()+1}`;
+    const pill=document.querySelector('#monthlySection .pill');if(pill&&sourceLabel)pill.innerHTML=`<span class="dot"></span>${sourceLabel} <span aria-hidden="true">›</span>`;
+    const prev=document.getElementById('dashMonthPrev'),next=document.getElementById('dashMonthNext');
+    if(prev)prev.disabled=date.getFullYear()===FIRST_YEAR&&date.getMonth()===0;
+    if(next)next.disabled=sameMonth(date,currentMonth());
+  }
+  async function fetchStored(date){
+    if(typeof sb==='undefined'||!sb)return null;
+    const {data,error}=await sb.from('monthly_settlements')
+      .select('total_income,total_expense,net_cash_flow,categories,source')
+      .eq('year',date.getFullYear()).eq('month',date.getMonth()+1).maybeSingle();
+    if(error)throw error;
+    return data||null;
+  }
+  async function fetchTransactions(date){
+    const start=new Date(date.getFullYear(),date.getMonth(),1),end=new Date(date.getFullYear(),date.getMonth()+1,1);
+    const {data,error}=await sb.from('transactions')
+      .select('occurred_at,source,account,merchant,category,amount')
+      .gte('occurred_at',start.toISOString()).lt('occurred_at',end.toISOString())
+      .order('occurred_at',{ascending:false});
+    if(error)throw error;
+    return data||[];
+  }
+  async function renderMonth(date){
+    if(rendering||typeof sb==='undefined'||!sb)return;
+    rendering=true;
+    try{
+      selected=new Date(date.getFullYear(),date.getMonth(),1);
+      updateHeader(selected,'불러오는 중');
+      const stored=await fetchStored(selected);
+      if(stored){
+        const income=stored.total_income==null?null:Number(stored.total_income),expense=stored.total_expense==null?null:Number(stored.total_expense);
+        const net=stored.net_cash_flow==null?(income!==null&&expense!==null?income-expense:null):Number(stored.net_cash_flow);
+        setValue('monthIncome',income);setValue('monthExpense',expense);setValue('monthCF',net,'v num '+(net!==null&&net>=0?'good':'neg'));
+        const note=document.getElementById('monthIncomeNote');if(note)note.textContent='저장된 월 결산 기준';
+        renderCategoryMap(normalizeStoredCategories(stored.categories));
+        updateHeader(selected,'저장 실적');
+        return;
+      }
+      const key=monthKey(selected);
+      const [tx,z]=await Promise.all([fetchTransactions(selected),loadZaritalk(key)]);
+      const rents=normalizeRent(z),hasRent=rents.some(r=>r.live),hasData=tx.length>0||hasRent;
+      if(!hasData){
+        setValue('monthIncome',null);setValue('monthExpense',null);setValue('monthCF',null,'v num');
+        const note=document.getElementById('monthIncomeNote');if(note)note.textContent='집계 자료 없음';
+        renderCategoryMap({});
+        updateHeader(selected,'자료 없음');
+        return;
+      }
+      const flow=monthlyCashFlow(tx,key,z);
+      setValue('monthIncome',flow.income);setValue('monthExpense',flow.expense);setValue('monthCF',flow.net,'v num '+(flow.net>=0?'good':'neg'));
+      const note=document.getElementById('monthIncomeNote');
+      if(note)note.textContent=hasRent?'월세 실제 수납 포함':'월세 수납 미확인 · 거래만 집계';
+      renderCategoryMap(txCategoryMap(tx));
+      updateHeader(selected,'자동집계');
+    }catch(error){
+      console.warn('dashboard month navigation',error);
+      updateHeader(selected,'확인 필요');
+    }finally{rendering=false}
+  }
+  function moveMonth(direction){
+    if(!selected)selected=currentMonth();
+    const next=new Date(selected.getFullYear(),selected.getMonth()+direction,1),max=currentMonth();
+    if(next.getFullYear()<FIRST_YEAR||next>max)return;
+    renderMonth(next);
+  }
+  function install(){
+    const head=document.querySelector('.month-head');if(!head||document.getElementById('dashMonthPrev'))return;
+    selected=currentMonth();
+    const style=document.createElement('style');
+    style.textContent='.month-head.dashboard-month-nav{display:grid;grid-template-columns:38px minmax(0,1fr) 38px;align-items:center;gap:8px}.month-nav-center{min-width:0;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.month-nav-btn{width:38px;height:38px;border-radius:12px;border:1px solid #244565;background:#0b1a2b;color:#dbe9f8;font-size:27px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}.month-nav-btn:active{transform:scale(.96)}.month-nav-btn:disabled{opacity:.25;cursor:default}.month-nav-btn:focus-visible{outline:2px solid #4b9dff;outline-offset:2px}@media(max-width:420px){.month-head.dashboard-month-nav{grid-template-columns:34px minmax(0,1fr) 34px;gap:6px}.month-nav-btn{width:34px;height:34px;border-radius:11px;font-size:24px}.month-nav-center .section-meta{font-size:9px}}';
+    document.head.appendChild(style);
+    const titleBlock=head.firstElementChild,meta=head.querySelector('.section-meta');
+    const center=document.createElement('div');center.className='month-nav-center';
+    if(titleBlock)center.appendChild(titleBlock);if(meta)center.appendChild(meta);
+    const prev=document.createElement('button');prev.type='button';prev.id='dashMonthPrev';prev.className='month-nav-btn';prev.textContent='‹';prev.setAttribute('aria-label','이전 달');
+    const next=document.createElement('button');next.type='button';next.id='dashMonthNext';next.className='month-nav-btn';next.textContent='›';next.setAttribute('aria-label','다음 달');
+    [prev,next].forEach(btn=>btn.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();moveMonth(btn===prev?-1:1)}));
+    head.classList.add('dashboard-month-nav');head.replaceChildren(prev,center,next);
+    updateHeader(selected,'자동집계');
+
+    const originalLoad=global.load;
+    if(typeof originalLoad==='function'&&!originalLoad.__monthNavWrapped){
+      const wrapped=async function(...args){const result=await originalLoad.apply(this,args);if(selected&&!sameMonth(selected,currentMonth()))await renderMonth(selected);else updateHeader(currentMonth(),'자동집계');return result};
+      wrapped.__monthNavWrapped=true;global.load=wrapped;
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else setTimeout(install,0);
+})(window);
