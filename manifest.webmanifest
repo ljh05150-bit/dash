@@ -1,16 +1,16 @@
 {
   "name": "우리집 재무 대시보드",
   "short_name": "우리집 재무",
-  "id": "./app.html",
-  "start_url": "./app.html",
-  "scope": "./",
+  "id": "/dash/app.html",
+  "start_url": "/dash/app.html?source=pwa",
+  "scope": "/dash/",
   "display": "standalone",
   "background_color": "#0b0d12",
   "theme_color": "#0b0d12",
   "lang": "ko-KR",
   "icons": [
     {
-      "src": "./app-icon.svg?v=20260907-0910",
+      "src": "/dash/app-icon.svg?v=20260907-0915",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
