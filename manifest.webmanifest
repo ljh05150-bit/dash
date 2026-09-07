@@ -1,9 +1,19 @@
 {
-  "name": "Family Financial Dashboard",
-  "short_name": "가계부",
+  "name": "우리집 재무 대시보드",
+  "short_name": "우리집 재무",
+  "id": "./",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0b0d12",
   "theme_color": "#0b0d12",
-  "lang": "ko-KR"
+  "lang": "ko-KR",
+  "icons": [
+    {
+      "src": "./app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
