@@ -10,6 +10,13 @@
       const meta=document.querySelector('#transactionsSection .section-meta');
       if(meta)meta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
     }
+    if(sb&&typeof sb.channel==='function'){
+      sb.channel('dashboard-transactions-live')
+        .on('postgres_changes',{event:'*',schema:'public',table:'transactions'},()=>{
+          if(typeof global.load==='function')global.load();
+        })
+        .subscribe();
+    }
 async function loadZaritalk(yearMonth=ym(new Date())){
   try{
     const {data,error}=await sb.auth.getSession();
