@@ -81,7 +81,7 @@ function normalizeRent(z){
     if(document.getElementById('recent-transaction-limit-style'))return;
     const style=document.createElement('style');
     style.id='recent-transaction-limit-style';
-    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important}';
+    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #transactionsSection .section-meta{font-size:19px;font-weight:830;letter-spacing:-.035em;color:var(--text)}';
     document.head.appendChild(style);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installRecentTransactionLimit,{once:true});
