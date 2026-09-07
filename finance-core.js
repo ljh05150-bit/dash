@@ -8,7 +8,14 @@
     function updateCurrentMonthSpend(yearMonth,expense){
       if(yearMonth!==ym(new Date()))return;
       const meta=document.querySelector('#transactionsSection .section-meta');
-      if(meta)meta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
+      if(meta){
+        meta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
+        meta.style.setProperty('font-size','19px','important');
+        meta.style.setProperty('font-weight','830','important');
+        meta.style.setProperty('letter-spacing','-.035em','important');
+        meta.style.setProperty('color','var(--text)','important');
+        meta.style.setProperty('line-height','1.2','important');
+      }
     }
     if(sb&&typeof sb.channel==='function'){
       sb.channel('dashboard-transactions-live')
@@ -81,7 +88,7 @@ function normalizeRent(z){
     if(document.getElementById('recent-transaction-limit-style'))return;
     const style=document.createElement('style');
     style.id='recent-transaction-limit-style';
-    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #transactionsSection .section-meta{font-size:19px;font-weight:830;letter-spacing:-.035em;color:var(--text)}';
+    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #transactionsSection .section-meta{font-size:19px!important;font-weight:830!important;letter-spacing:-.035em!important;color:var(--text)!important;line-height:1.2!important}';
     document.head.appendChild(style);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installRecentTransactionLimit,{once:true});
