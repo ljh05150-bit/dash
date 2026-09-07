@@ -9,12 +9,14 @@
       if(yearMonth!==ym(new Date()))return;
       const meta=document.querySelector('#transactionsSection .section-meta');
       if(meta){
-        meta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
-        meta.style.setProperty('font-size','19px','important');
-        meta.style.setProperty('font-weight','830','important');
-        meta.style.setProperty('letter-spacing','-.035em','important');
-        meta.style.setProperty('color','var(--text)','important');
-        meta.style.setProperty('line-height','1.2','important');
+        const amount=Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원';
+        meta.innerHTML='<span class="monthly-spend-label">이번달 사용</span><span class="monthly-spend-value">'+amount+'</span>';
+        meta.style.setProperty('display','flex','important');
+        meta.style.setProperty('flex-direction','column','important');
+        meta.style.setProperty('align-items','flex-end','important');
+        meta.style.setProperty('justify-content','center','important');
+        meta.style.setProperty('gap','2px','important');
+        meta.style.setProperty('line-height','1','important');
       }
     }
     if(sb&&typeof sb.channel==='function'){
@@ -88,7 +90,7 @@ function normalizeRent(z){
     if(document.getElementById('recent-transaction-limit-style'))return;
     const style=document.createElement('style');
     style.id='recent-transaction-limit-style';
-    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #transactionsSection .section-meta{font-size:19px!important;font-weight:830!important;letter-spacing:-.035em!important;color:var(--text)!important;line-height:1.2!important}';
+    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #transactionsSection .section-meta{display:flex!important;flex-direction:column!important;align-items:flex-end!important;justify-content:center!important;gap:2px!important;text-align:right!important;white-space:nowrap!important} #transactionsSection .monthly-spend-label{display:block!important;font-size:10px!important;font-weight:650!important;letter-spacing:-.01em!important;color:var(--muted)!important;line-height:1.1!important} #transactionsSection .monthly-spend-value{display:block!important;font-size:18px!important;font-weight:830!important;letter-spacing:-.035em!important;color:var(--text)!important;line-height:1.05!important}';
     document.head.appendChild(style);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installRecentTransactionLimit,{once:true});
