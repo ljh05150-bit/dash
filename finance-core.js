@@ -68,6 +68,7 @@ function monthlyCashFlow(tx,yearMonth,z){
   });
   expense=Math.max(0,expense);
   updateCurrentMonthSpend(yearMonth,expense);
+  setTimeout(()=>updateCurrentMonthSpend(yearMonth,expense),0);
   const bankRent=bankRentTotal(tx,yearMonth);
   const zaritalkRent=zaritalkPaidTotal(z);
   income+=Math.max(0,zaritalkRent-bankRent);
