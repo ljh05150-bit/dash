@@ -5,6 +5,11 @@
     const ZARITALK_URL=supabaseUrl+'/functions/v1/zaritalk-sync';
     const CONFIG={properties};
     function ym(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+    function updateCurrentMonthSpend(yearMonth,expense){
+      if(yearMonth!==ym(new Date()))return;
+      const meta=document.querySelector('#transactionsSection .section-meta');
+      if(meta)meta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
+    }
 async function loadZaritalk(yearMonth=ym(new Date())){
   try{
     const {data,error}=await sb.auth.getSession();
@@ -46,6 +51,7 @@ function monthlyCashFlow(tx,yearMonth,z){
     n>=0?income+=n:expense+=Math.abs(n);
   });
   expense=Math.max(0,expense);
+  updateCurrentMonthSpend(yearMonth,expense);
   const bankRent=bankRentTotal(tx,yearMonth);
   const zaritalkRent=zaritalkPaidTotal(z);
   income+=Math.max(0,zaritalkRent-bankRent);
@@ -63,5 +69,16 @@ function normalizeRent(z){
 }
     return {loadZaritalk,normalizeRent,zaritalkPaidTotal,bankRentTotal,monthlyCashFlow};
   }
+
+  function installRecentTransactionLimit(){
+    if(document.getElementById('recent-transaction-limit-style'))return;
+    const style=document.createElement('style');
+    style.id='recent-transaction-limit-style';
+    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important}';
+    document.head.appendChild(style);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installRecentTransactionLimit,{once:true});
+  else installRecentTransactionLimit();
+
   global.FinanceCore={createCashFlow};
 })(window);
