@@ -94,8 +94,28 @@ function normalizeRent(z){
     style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #transactionsSection .section-meta{display:flex!important;flex-direction:column!important;align-items:flex-end!important;justify-content:center!important;gap:2px!important;text-align:right!important;white-space:nowrap!important} #transactionsSection .monthly-spend-label{display:block!important;font-size:10px!important;font-weight:650!important;letter-spacing:-.01em!important;color:var(--muted)!important;line-height:1.1!important} #transactionsSection .monthly-spend-value{display:block!important;font-size:18px!important;font-weight:830!important;letter-spacing:-.035em!important;color:var(--text)!important;line-height:1.05!important}';
     document.head.appendChild(style);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installRecentTransactionLimit,{once:true});
-  else installRecentTransactionLimit();
+
+  function installAuctionShortcut(){
+    const rentGrid=document.getElementById('rentGrid');
+    if(!rentGrid||document.getElementById('auction-monitor-shortcut'))return;
+    if(!document.getElementById('auction-monitor-shortcut-style')){
+      const style=document.createElement('style');
+      style.id='auction-monitor-shortcut-style';
+      style.textContent='.auction-monitor-shortcut{display:block;color:inherit;text-decoration:none;margin-top:12px}.auction-monitor-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 15px;border-radius:18px;border:1px solid #2b5b86;background:linear-gradient(145deg,rgba(15,31,50,.97),rgba(10,23,38,.97));box-shadow:0 12px 35px rgba(0,0,0,.18)}.auction-monitor-card:active{transform:scale(.99)}.auction-monitor-icon{width:38px;height:38px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#123359;border:1px solid #326493;color:#75baff;font-size:19px}.auction-monitor-main{display:flex;align-items:center;gap:11px;min-width:0}.auction-monitor-title{font-size:14px;font-weight:820}.auction-monitor-sub{font-size:9px;color:#7890aa;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.auction-monitor-go{font-size:20px;color:#6f8eae}';
+      document.head.appendChild(style);
+    }
+    const link=document.createElement('a');
+    link.id='auction-monitor-shortcut';
+    link.className='auction-monitor-shortcut';
+    link.href='./auction.html';
+    link.setAttribute('aria-label','경매 탐색 열기');
+    link.innerHTML='<div class="auction-monitor-card"><div class="auction-monitor-main"><div class="auction-monitor-icon">⌂</div><div><div class="auction-monitor-title">경매 탐색</div><div class="auction-monitor-sub">15억+ · 서울/경기남부/대전/천안 · 신규·유찰 자동추적</div></div></div><div class="auction-monitor-go">›</div></div>';
+    rentGrid.insertAdjacentElement('afterend',link);
+  }
+
+  function installDashboardEnhancements(){installRecentTransactionLimit();installAuctionShortcut();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installDashboardEnhancements,{once:true});
+  else installDashboardEnhancements();
 
   global.FinanceCore={createCashFlow};
 })(window);
