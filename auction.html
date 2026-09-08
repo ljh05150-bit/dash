@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06101d">
+<title>경매 탐색 · 우리집</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#06101d;--panel:#0d1a2b;--panel2:#101f32;--line:#244565;--line2:#1b334d;--text:#f5f8fc;--muted:#8fa3ba;--blue:#4b9dff;--green:#42d69b;--orange:#ffb33c;--red:#ff5b65;--purple:#9c83ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif}body{min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);background:radial-gradient(circle at 50% -12%,rgba(44,113,204,.23),transparent 34%),linear-gradient(180deg,#06101d,#050b13)}
+.wrap{max-width:980px;margin:0 auto;padding:18px 16px 40px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:6px 2px 15px}.back{display:inline-flex;align-items:center;gap:5px;color:#cfe0f4;text-decoration:none;font-size:12px;margin-bottom:9px}.title{font-size:27px;font-weight:860;letter-spacing:-.045em}.sub{font-size:11px;color:var(--muted);line-height:1.55;margin-top:6px}.btn{border:1px solid var(--line);background:rgba(22,43,67,.72);color:#eaf2fb;border-radius:13px;padding:9px 11px;cursor:pointer;font-size:11px}.btn:disabled{opacity:.45}.btn.active{border-color:#4b9dff;background:#123359}.btn.danger{border-color:#62333b;color:#ff9fa5;background:#271820}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 16px}.sum{background:linear-gradient(150deg,#0d1c2f,#0a1727);border:1px solid #2b5b86;border-radius:17px;padding:12px}.sum .k{font-size:9px;color:#9bb0c7}.sum .v{font-size:23px;font-weight:850;margin-top:5px}.sum .s{font-size:8px;color:#6f869f;margin-top:4px}
+.filters{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 14px}.filter{border:1px solid var(--line);background:#0b192a;color:#9eb2c8;border-radius:999px;padding:7px 10px;font-size:10px;cursor:pointer}.filter.active{color:#fff;border-color:#4b9dff;background:#15365a}
+.section-head{display:flex;justify-content:space-between;align-items:end;margin:18px 2px 9px}.section-head h2{margin:0;font-size:19px;letter-spacing:-.035em}.section-head span{font-size:10px;color:var(--muted)}
+.list{display:grid;gap:10px}.item{background:linear-gradient(145deg,rgba(15,31,50,.98),rgba(10,23,38,.98));border:1px solid var(--line);border-radius:21px;padding:15px;box-shadow:0 18px 50px rgba(0,0,0,.2)}.item.grade-A{border-color:#497f66}.item.grade-B{border-color:#5a638c}.item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.case{font-size:12px;font-weight:800;color:#b6c8db}.addr{font-size:16px;font-weight:830;letter-spacing:-.03em;line-height:1.35;margin-top:5px}.grade{min-width:48px;height:48px;border-radius:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--line);font-weight:900}.grade b{font-size:20px;line-height:1}.grade span{font-size:8px;margin-top:3px;color:#9fb2c5}.grade-A .grade{background:#102c23;border-color:#3d725c;color:#69dda8}.grade-B .grade{background:#1a233d;border-color:#465682;color:#a9b8ff}.grade-C .grade{background:#251f18;border-color:#5e4b2c;color:#ffc46d}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.tag{font-size:9px;border:1px solid var(--line2);background:#091725;color:#9fb3c8;border-radius:999px;padding:5px 7px}.tag.warn{color:#ffb6bb;border-color:#573039;background:#24161c}.tag.state{color:#a9e9d0;border-color:#2a5e4b;background:#10251e}
+.money{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:14px;overflow:hidden;margin-top:12px}.money>div{background:#091827;padding:10px}.money .k{font-size:8px;color:#7e93aa}.money .v{font-size:13px;font-weight:820;margin-top:3px;white-space:nowrap}.money .v.hot{color:#ffbf62}
+.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}.meta .k{font-size:8px;color:#71869e}.meta .v{font-size:10px;font-weight:720;margin-top:2px}.actions{display:flex;gap:7px;align-items:center;margin-top:13px;padding-top:12px;border-top:1px solid var(--line2)}.actions .spacer{flex:1}.source{font-size:10px;color:#82b9f2;text-decoration:none}.empty{padding:36px 18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:18px}.notice{border:1px solid #5d4b2c;background:#211b12;color:#e9c780;border-radius:15px;padding:11px 12px;font-size:10px;line-height:1.55;margin-bottom:13px}.error{color:#ff929a}.loading{padding:30px;text-align:center;color:var(--muted)}
+@media(max-width:620px){.summary{grid-template-columns:repeat(2,1fr)}.money{grid-template-columns:1fr 1fr}.money>div:nth-child(3){grid-column:1/-1}.meta{grid-template-columns:1fr 1fr}.actions{flex-wrap:wrap}.addr{font-size:15px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./index.html">‹ 재무 대시보드</a>
+  <div class="top"><div><div class="title">경매 탐색</div><div class="sub">감정가 15억+ · 서울 / 경기남부 / 대전 / 천안 · 수익형·상업용 자동추적</div></div><button class="btn" onclick="loadData()">새로고침</button></div>
+  <div id="authNotice" class="notice" hidden>로그인이 필요합니다. <a href="./index.html" style="color:#9dccff">재무 대시보드에서 로그인</a>한 뒤 다시 열어주세요.</div>
+  <div class="summary">
+    <div class="sum"><div class="k">전체 후보</div><div class="v" id="sumTotal">-</div><div class="s">제외 물건 제외</div></div>
+    <div class="sum"><div class="k">A급</div><div class="v" id="sumA">-</div><div class="s">우선 검토</div></div>
+    <div class="sum"><div class="k">B급</div><div class="v" id="sumB">-</div><div class="s">검토 가치</div></div>
+    <div class="sum"><div class="k">14일 이내</div><div class="v" id="sumDue">-</div><div class="s">매각기일</div></div>
+  </div>
+  <div class="filters" id="gradeFilters">
+    <button class="filter active" data-grade="ALL">전체 등급</button><button class="filter" data-grade="A">A급</button><button class="filter" data-grade="B">B급</button><button class="filter" data-grade="C">C급</button>
+  </div>
+  <div class="filters" id="regionFilters">
+    <button class="filter active" data-region="ALL">전체 지역</button><button class="filter" data-region="서울특별시">서울</button><button class="filter" data-region="경기도">경기남부</button><button class="filter" data-region="대전광역시">대전</button><button class="filter" data-region="충청남도">천안</button>
+  </div>
+  <div class="section-head"><h2>후보 물건</h2><span id="countLabel">-</span></div>
+  <div id="list" class="list"><div class="loading">불러오는 중…</div></div>
+</div>
+<script>
+const SUPABASE_URL='https://ixuxaqerdftadfnkxxui.supabase.co';
+const SUPABASE_KEY='sb_publishable_2Q42l50u-YjgBmu5xDvoAA_LUtLhm8j';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'family-finance-auth'}});
+let rows=[];let gradeFilter='ALL';let regionFilter='ALL';
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function won(n){n=Number(n||0);if(!Number.isFinite(n))return '-';if(Math.abs(n)>=100000000)return (n/100000000).toFixed(n%100000000?2:0)+'억';if(Math.abs(n)>=10000)return Math.round(n/10000).toLocaleString('ko-KR')+'만';return Math.round(n).toLocaleString('ko-KR')+'원'}
+function dateKR(v){if(!v)return '-';const d=new Date(v+'T00:00:00');return Number.isNaN(d.getTime())?esc(v):d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\s/g,'')}
+function sourceUrl(r){const u=r?.source_urls||{};return u.detail||u.court||u.speedauction||u.propauction||Object.values(u).find(x=>typeof x==='string'&&/^https?:\/\//.test(x))||''}
+function filtered(){return rows.filter(r=>(gradeFilter==='ALL'||r.grade===gradeFilter)&&(regionFilter==='ALL'||r.region1===regionFilter))}
+function setSummary(){const now=new Date();now.setHours(0,0,0,0);const limit=new Date(now);limit.setDate(limit.getDate()+14);$('sumTotal').textContent=rows.length;$('sumA').textContent=rows.filter(r=>r.grade==='A').length;$('sumB').textContent=rows.filter(r=>r.grade==='B').length;$('sumDue').textContent=rows.filter(r=>{if(!r.auction_date)return false;const d=new Date(r.auction_date+'T00:00:00');return d>=now&&d<=limit}).length}
+function render(){const data=filtered();$('countLabel').textContent=data.length+'건';if(!data.length){$('list').innerHTML='<div class="empty">조건에 맞는 후보가 없습니다.</div>';return}
+  $('list').innerHTML=data.map(r=>{const flags=Array.isArray(r.special_flags)?r.special_flags:[];const url=sourceUrl(r);const type=r.property_group||r.property_type_raw||'기타';const review=r.review_status==='watch'?'관심':r.review_status==='review'?'검토중':r.review_status==='bid'?'입찰':'미검토';return `<article class="item grade-${esc(r.grade)}">
+    <div class="item-top"><div><div class="case">${esc(r.case_number)} · 물건 ${esc(r.item_number)}</div><div class="addr">${esc(r.address)}</div></div><div class="grade"><b>${esc(r.grade)}</b><span>${esc(r.score)}점</span></div></div>
+    <div class="tags"><span class="tag">${esc(type)}</span><span class="tag">${esc(r.status||'진행')}</span><span class="tag state">${esc(review)}</span>${flags.map(f=>`<span class="tag warn">${esc(f)}</span>`).join('')}</div>
+    <div class="money"><div><div class="k">감정가</div><div class="v">${won(r.appraisal_value)}</div></div><div><div class="k">최저가</div><div class="v hot">${won(r.minimum_bid_value)}</div></div><div><div class="k">최저가율</div><div class="v hot">${r.minimum_bid_ratio==null?'-':Number(r.minimum_bid_ratio).toFixed(1)+'%'}</div></div></div>
+    <div class="meta"><div><div class="k">유찰</div><div class="v">${esc(r.failure_count||0)}회</div></div><div><div class="k">매각기일</div><div class="v">${dateKR(r.auction_date)}</div></div><div><div class="k">법원</div><div class="v">${esc(r.court||'-')}</div></div></div>
+    <div class="actions"><button class="btn ${r.review_status==='watch'?'active':''}" onclick="setStatus('${r.id}','watch')">관심</button><button class="btn ${r.review_status==='review'?'active':''}" onclick="setStatus('${r.id}','review')">검토</button><button class="btn danger" onclick="setStatus('${r.id}','exclude')">제외</button><span class="spacer"></span>${url?`<a class="source" href="${esc(url)}" target="_blank" rel="noopener">원문 보기 ↗</a>`:''}</div>
+  </article>`}).join('')}
+async function setStatus(id,status){try{const {error}=await sb.from('auction_items').update({review_status:status}).eq('id',id);if(error)throw error;if(status==='exclude')rows=rows.filter(r=>r.id!==id);else{const r=rows.find(x=>x.id===id);if(r)r.review_status=status}setSummary();render()}catch(e){alert('저장 오류: '+e.message)}}
+async function loadData(){const {data:sessionData}=await sb.auth.getSession();if(!sessionData?.session){$('authNotice').hidden=false;$('list').innerHTML='<div class="empty">로그인 후 경매 후보를 확인할 수 있습니다.</div>';return}
+  $('authNotice').hidden=true;$('list').innerHTML='<div class="loading">불러오는 중…</div>';
+  const {data,error}=await sb.from('auction_active_candidates').select('*').order('score',{ascending:false}).order('appraisal_value',{ascending:false});if(error){$('list').innerHTML='<div class="empty error">데이터 오류: '+esc(error.message)+'</div>';return}rows=data||[];setSummary();render()}
+function bindFilters(id,key){$(id).addEventListener('click',e=>{const b=e.target.closest('.filter');if(!b)return;$(id).querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(key==='grade')gradeFilter=b.dataset.grade;else regionFilter=b.dataset.region;render()})}
+bindFilters('gradeFilters','grade');bindFilters('regionFilters','region');
+sb.auth.onAuthStateChange(()=>loadData());loadData();
+</script>
+</body>
+</html>
