@@ -1,5 +1,7 @@
 (function(){
   'use strict';
+  if(window.__recentTransactionEditorLoaded)return;
+  window.__recentTransactionEditorLoaded=true;
 
   const SUPABASE_URL='https://ixuxaqerdftadfnkxxui.supabase.co';
   const SUPABASE_KEY='sb_publishable_2Q42l50u-YjgBmu5xDvoAA_LUtLhm8j';
