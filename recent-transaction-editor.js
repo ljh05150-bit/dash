@@ -59,6 +59,7 @@
       #txrows .tx-row[data-recent-edit]::after{content:'›';position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:20px;color:#617f9f}
       #txrows .tx-row[data-recent-edit]:focus-visible{box-shadow:0 0 0 2px var(--blue) inset}
       .tx-quick-memo{font-size:9px;color:#9fb3c8;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .recent-edit-backdrop[hidden]{display:none!important}
       .recent-edit-backdrop{position:fixed;inset:0;z-index:10050;background:rgba(1,6,12,.78);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:flex-end;justify-content:center;padding-top:40px}
       .recent-edit-sheet{width:min(620px,100%);background:linear-gradient(180deg,#0d1e31,#081421);border:1px solid #234c70;border-bottom:0;border-radius:28px 28px 0 0;padding:10px 18px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -16px 50px rgba(0,0,0,.5)}
       .recent-edit-handle{width:42px;height:5px;border-radius:999px;background:#40536a;margin:2px auto 15px}
@@ -111,8 +112,7 @@
     const {data,error}=await client.from('transactions').update({category,memo:memo||null}).eq('id',id).select('id,category,memo').single();
     if(error){status.textContent='저장 실패';button.disabled=false;return;}
     const tx=recentRows.find(row=>row.id===id);if(tx){tx.category=data.category;tx.memo=data.memo;}
-    status.textContent='저장됨';
-    button.disabled=false;
+    status.textContent='저장됨';button.disabled=false;
     await syncRows();
     setTimeout(()=>{closeModal();if(typeof window.load==='function')window.load();},250);
   }
@@ -135,7 +135,7 @@
 
   function setup(){
     const host=document.getElementById('txrows');if(!host)return;
-    injectStyle();ensureModal();
+    injectStyle();
     const observer=new MutationObserver(scheduleSync);observer.observe(host,{childList:true,subtree:true});
     host.addEventListener('click',event=>{const row=event.target.closest('.tx-row[data-recent-edit]');if(!row)return;const tx=recentRows.find(item=>item.id===row.dataset.recentEdit);if(tx)openModal(tx);});
     host.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const row=event.target.closest('.tx-row[data-recent-edit]');if(!row)return;event.preventDefault();const tx=recentRows.find(item=>item.id===row.dataset.recentEdit);if(tx)openModal(tx);});
