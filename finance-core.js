@@ -113,7 +113,15 @@ function normalizeRent(z){
     rentGrid.insertAdjacentElement('afterend',link);
   }
 
-  function installDashboardEnhancements(){installRecentTransactionLimit();installAuctionShortcut();}
+  function installRecentTransactionEditor(){
+    if(!document.getElementById('txrows')||document.querySelector('script[data-recent-transaction-editor]'))return;
+    const script=document.createElement('script');
+    script.src='./recent-transaction-editor.js?v=20260911-quickedit';
+    script.dataset.recentTransactionEditor='1';
+    document.head.appendChild(script);
+  }
+
+  function installDashboardEnhancements(){installRecentTransactionLimit();installAuctionShortcut();installRecentTransactionEditor();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installDashboardEnhancements,{once:true});
   else installDashboardEnhancements();
 
