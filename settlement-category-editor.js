@@ -8,7 +8,7 @@
     ['수입',['현금','상여금','부수입','월세수입','투자수익','보증금','기타수입']],
     ['저축',['적금','예금','근로소득저축','대출상환','자본소득저축']],
     ['고정지출',['주거비','보험료','통신비','교통비','주거비기타','대출원리금']],
-    ['식비',['마트','편의점','외식']],
+    ['식비',[{label:'식비',value:'식비'},{label:'외식',value:'식비/외식'}]],
     ['용돈',['부모님','가족']],
     ['생활용품',['생필품/소모품','수리비','주방/욕실']],
     ['의복/미용',['의류','뷰티','헤어']],
@@ -24,7 +24,12 @@
     ['외부식비',['주최외부미팅','술외부미팅']]
   ];
 
-  const VALUES=new Set(TAXONOMY.flatMap(([group,items])=>items.map(item=>`${group}/${item}`)));
+  function itemSpec(group,item){
+    if(item && typeof item==='object')return {label:item.label,value:item.value};
+    return {label:String(item),value:`${group}/${item}`};
+  }
+
+  const VALUES=new Set(TAXONOMY.flatMap(([group,items])=>items.map(item=>itemSpec(group,item).value)));
   const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'family-finance-auth'}
   });
@@ -57,8 +62,8 @@
     TAXONOMY.forEach(([group,items])=>{
       html+=`<optgroup label="${esc(group)}">`;
       items.forEach(item=>{
-        const value=`${group}/${item}`;
-        html+=`<option value="${esc(value)}"${value===current?' selected':''}>${esc(item)}</option>`;
+        const spec=itemSpec(group,item);
+        html+=`<option value="${esc(spec.value)}"${spec.value===current?' selected':''}>${esc(spec.label)}</option>`;
       });
       html+='</optgroup>';
     });
