@@ -42,7 +42,10 @@
     if(current&&!allValues.has(current)&&current!=='미분류')html+=`<optgroup label="현재 분류"><option value="${esc(current)}" selected>${esc(current)}</option></optgroup>`;
     for(const [group,items] of TAXONOMY){
       html+=`<optgroup label="${esc(group)}">`;
-      for(const item of items){const spec=itemSpec(group,item);html+=`<option value="${esc(spec.value)}"${spec.value===current?' selected':''}>${esc(spec.label)}</option>`;}
+      for(const item of items){
+        const spec=itemSpec(group,item);
+        html+=`<option value="${esc(spec.value)}"${spec.value===current?' selected':''}>${esc(spec.label)}</option>`;
+      }
       html+='</optgroup>';
     }
     html+=`<optgroup label="관리"><option value="미분류"${current==='미분류'?' selected':''}>미분류</option></optgroup>`;
@@ -74,23 +77,29 @@
     document.head.append(style);
   }
 
+  function destroyModal(){
+    const root=document.getElementById('recentTransactionEditor');
+    if(root)root.remove();
+    document.body.classList.remove('recent-edit-open');
+  }
+
   function ensureModal(){
     let root=document.getElementById('recentTransactionEditor');
     if(root)return root;
     root=document.createElement('div');
-    root.id='recentTransactionEditor';root.className='recent-edit-backdrop';root.hidden=true;
+    root.id='recentTransactionEditor';
+    root.className='recent-edit-backdrop';
     root.innerHTML=`<section class="recent-edit-sheet" role="dialog" aria-modal="true" aria-labelledby="recentEditTitle"><div class="recent-edit-handle"></div><div class="recent-edit-head"><div><div class="recent-edit-title" id="recentEditTitle">거래 수정</div><div class="recent-edit-sub" id="recentEditSub"></div><div class="recent-edit-amount" id="recentEditAmount"></div></div><button class="recent-edit-close" type="button" aria-label="닫기">×</button></div><div class="recent-edit-field"><label for="recentEditCategory">카테고리</label><select id="recentEditCategory"></select></div><div class="recent-edit-field"><label for="recentEditMemo">메모</label><input id="recentEditMemo" maxlength="120" placeholder="무엇에 쓴 돈인지 적어두세요"></div><div class="recent-edit-actions"><button type="button" data-action="cancel">취소</button><button class="primary" type="button" data-action="save">저장</button></div><div class="recent-edit-status" id="recentEditStatus" aria-live="polite"></div></section>`;
     document.body.append(root);
     root.addEventListener('click',event=>{
-      if(event.target===root||event.target.closest('[data-action="cancel"]')||event.target.closest('.recent-edit-close'))closeModal();
+      if(event.target===root||event.target.closest('[data-action="cancel"]')||event.target.closest('.recent-edit-close'))destroyModal();
       if(event.target.closest('[data-action="save"]'))saveCurrent();
     });
     return root;
   }
 
-  function closeModal(){const root=document.getElementById('recentTransactionEditor');if(root){root.hidden=true;root.removeAttribute('data-id');document.body.classList.remove('recent-edit-open')}}
-
   function openModal(tx){
+    destroyModal();
     const root=ensureModal();
     root.dataset.id=tx.id;
     document.getElementById('recentEditTitle').textContent=tx.merchant||tx.category||'거래';
@@ -99,49 +108,83 @@
     document.getElementById('recentEditCategory').innerHTML=options(tx.category||'미분류');
     document.getElementById('recentEditMemo').value=tx.memo||'';
     document.getElementById('recentEditStatus').textContent='';
-    root.hidden=false;document.body.classList.add('recent-edit-open');
+    document.body.classList.add('recent-edit-open');
   }
 
   async function saveCurrent(){
-    const root=document.getElementById('recentTransactionEditor'),id=root?.dataset.id;if(!id)return;
+    const root=document.getElementById('recentTransactionEditor');
+    const id=root?.dataset.id;
+    if(!id)return;
     const category=document.getElementById('recentEditCategory').value;
     const memo=document.getElementById('recentEditMemo').value.trim();
     const status=document.getElementById('recentEditStatus');
     const button=root.querySelector('[data-action="save"]');
-    button.disabled=true;status.textContent='저장 중…';
+    button.disabled=true;
+    status.textContent='저장 중…';
     const {data,error}=await client.from('transactions').update({category,memo:memo||null}).eq('id',id).select('id,category,memo').single();
     if(error){status.textContent='저장 실패';button.disabled=false;return;}
-    const tx=recentRows.find(row=>row.id===id);if(tx){tx.category=data.category;tx.memo=data.memo;}
-    status.textContent='저장됨';button.disabled=false;
+    const tx=recentRows.find(row=>row.id===id);
+    if(tx){tx.category=data.category;tx.memo=data.memo;}
+    status.textContent='저장됨';
+    button.disabled=false;
     await syncRows();
-    setTimeout(()=>{closeModal();if(typeof window.load==='function')window.load();},250);
+    setTimeout(()=>{destroyModal();if(typeof window.load==='function')window.load();},180);
   }
 
   async function syncRows(){
-    const host=document.getElementById('txrows');if(!host)return;
+    const host=document.getElementById('txrows');
+    if(!host)return;
     const {data,error}=await client.from('transactions').select('id,occurred_at,source,account,merchant,category,amount,memo').order('occurred_at',{ascending:false}).limit(5);
     if(error)return;
     recentRows=data||[];
     const domRows=[...host.querySelectorAll('.tx-row')].slice(0,5);
     domRows.forEach((row,index)=>{
-      const tx=recentRows[index];if(!tx)return;
-      row.dataset.recentEdit=tx.id;row.tabIndex=0;row.setAttribute('role','button');row.setAttribute('aria-label',`${tx.merchant||'거래'} 수정`);
-      const main=row.querySelector('.tx-main');let memoEl=main?.querySelector('.tx-quick-memo');
-      if(tx.memo){if(!memoEl){memoEl=document.createElement('div');memoEl.className='tx-quick-memo';main?.append(memoEl);}memoEl.textContent='메모 · '+tx.memo;}else memoEl?.remove();
+      const tx=recentRows[index];
+      if(!tx)return;
+      row.dataset.recentEdit=tx.id;
+      row.tabIndex=0;
+      row.setAttribute('role','button');
+      row.setAttribute('aria-label',`${tx.merchant||'거래'} 수정`);
+      const main=row.querySelector('.tx-main');
+      let memoEl=main?.querySelector('.tx-quick-memo');
+      if(tx.memo){
+        if(!memoEl){memoEl=document.createElement('div');memoEl.className='tx-quick-memo';main?.append(memoEl);}
+        memoEl.textContent='메모 · '+tx.memo;
+      }else memoEl?.remove();
     });
   }
 
   function scheduleSync(){clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncRows(),40);}
 
   function setup(){
-    const host=document.getElementById('txrows');if(!host)return;
+    const host=document.getElementById('txrows');
+    if(!host)return;
     injectStyle();
-    const observer=new MutationObserver(scheduleSync);observer.observe(host,{childList:true,subtree:true});
-    host.addEventListener('click',event=>{const row=event.target.closest('.tx-row[data-recent-edit]');if(!row)return;const tx=recentRows.find(item=>item.id===row.dataset.recentEdit);if(tx)openModal(tx);});
-    host.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const row=event.target.closest('.tx-row[data-recent-edit]');if(!row)return;event.preventDefault();const tx=recentRows.find(item=>item.id===row.dataset.recentEdit);if(tx)openModal(tx);});
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.getElementById('recentTransactionEditor')?.hidden)closeModal();});
+    destroyModal();
+    const observer=new MutationObserver(scheduleSync);
+    observer.observe(host,{childList:true,subtree:true});
+    host.addEventListener('click',event=>{
+      const row=event.target.closest('.tx-row[data-recent-edit]');
+      if(!row)return;
+      const tx=recentRows.find(item=>item.id===row.dataset.recentEdit);
+      if(tx)openModal(tx);
+    });
+    host.addEventListener('keydown',event=>{
+      if(!['Enter',' '].includes(event.key))return;
+      const row=event.target.closest('.tx-row[data-recent-edit]');
+      if(!row)return;
+      event.preventDefault();
+      const tx=recentRows.find(item=>item.id===row.dataset.recentEdit);
+      if(tx)openModal(tx);
+    });
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')destroyModal();});
     scheduleSync();
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
+  window.addEventListener('pagehide',destroyModal);
+  window.addEventListener('pageshow',()=>{destroyModal();scheduleSync();});
+  window.addEventListener('popstate',()=>{destroyModal();scheduleSync();});
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});
+  else setup();
 })();
