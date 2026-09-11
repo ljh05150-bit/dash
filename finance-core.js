@@ -91,7 +91,7 @@ function normalizeRent(z){
     if(document.getElementById('recent-transaction-limit-style'))return;
     const style=document.createElement('style');
     style.id='recent-transaction-limit-style';
-    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #transactionsSection .section-meta{display:flex!important;flex-direction:column!important;align-items:flex-end!important;justify-content:center!important;gap:2px!important;text-align:right!important;white-space:nowrap!important} #transactionsSection .monthly-spend-label{display:block!important;font-size:10px!important;font-weight:650!important;letter-spacing:-.01em!important;color:var(--muted)!important;line-height:1.1!important} #transactionsSection .monthly-spend-value{display:block!important;font-size:18px!important;font-weight:830!important;letter-spacing:-.035em!important;color:var(--text)!important;line-height:1.05!important}';
+    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #recentTransactionEditor[hidden]{display:none!important} #transactionsSection .section-meta{display:flex!important;flex-direction:column!important;align-items:flex-end!important;justify-content:center!important;gap:2px!important;text-align:right!important;white-space:nowrap!important} #transactionsSection .monthly-spend-label{display:block!important;font-size:10px!important;font-weight:650!important;letter-spacing:-.01em!important;color:var(--muted)!important;line-height:1.1!important} #transactionsSection .monthly-spend-value{display:block!important;font-size:18px!important;font-weight:830!important;letter-spacing:-.035em!important;color:var(--text)!important;line-height:1.05!important}';
     document.head.appendChild(style);
   }
 
@@ -113,15 +113,7 @@ function normalizeRent(z){
     rentGrid.insertAdjacentElement('afterend',link);
   }
 
-  function installRecentTransactionEditor(){
-    if(!document.getElementById('txrows')||document.querySelector('script[data-recent-transaction-editor]'))return;
-    const script=document.createElement('script');
-    script.src='./recent-transaction-editor.js?v=20260911-quickedit';
-    script.dataset.recentTransactionEditor='1';
-    document.head.appendChild(script);
-  }
-
-  function installDashboardEnhancements(){installRecentTransactionLimit();installAuctionShortcut();installRecentTransactionEditor();}
+  function installDashboardEnhancements(){installRecentTransactionLimit();installAuctionShortcut();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installDashboardEnhancements,{once:true});
   else installDashboardEnhancements();
 
