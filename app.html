@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>우리집 재무 대시보드</title>
-<link rel="manifest" href="./manifest.webmanifest?v=20260907-0915">
+<link rel="manifest" href="./manifest.webmanifest?v=20260911-1105">
 <link rel="icon" href="./app-icon.svg?v=20260907-0915" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260907-0915">
 <style>
@@ -27,7 +27,7 @@ h1{font-size:24px;margin:0 0 10px;letter-spacing:-.04em}.sub{font-size:13px;line
 <h1>우리집 재무 대시보드</h1>
 <div class="sub" id="msg">설치 준비 중입니다.</div>
 <button class="btn" id="installBtn" type="button" hidden>앱으로 설치</button>
-<a class="btn secondary" href="./index.html">대시보드 열기</a>
+<a class="btn secondary" href="./index.html?v=20260911-1105">대시보드 열기</a>
 <div class="small" id="hint">앱으로 설치하면 삼성인터넷 배지 없이 독립 아이콘으로 표시됩니다.</div>
 </div></div>
 <script>
@@ -35,7 +35,7 @@ let deferredPrompt=null;
 const btn=document.getElementById('installBtn');
 const msg=document.getElementById('msg');
 const hint=document.getElementById('hint');
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js?v=20260907-0915').catch(()=>{});}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js?v=20260911-1105').catch(()=>{});}
 window.addEventListener('beforeinstallprompt',e=>{
   e.preventDefault();
   deferredPrompt=e;
@@ -50,7 +50,7 @@ btn.addEventListener('click',async()=>{
   btn.hidden=true;
 });
 window.addEventListener('appinstalled',()=>{msg.textContent='설치 완료. 홈 화면 아이콘으로 실행하세요.';hint.textContent='';});
-if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true){location.replace('./index.html?app=1');}
+if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true){location.replace('./index.html?v=20260911-1105&app=1');}
 setTimeout(()=>{
   if(!deferredPrompt){
     msg.innerHTML='이 브라우저에서는 설치 버튼이 안 뜰 수 있습니다.<br><b>Chrome으로 이 페이지를 열면 설치 버튼이 나타납니다.</b>';
