@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>우리집 재무 대시보드</title>
-<link rel="manifest" href="./manifest.webmanifest?v=20260911-1105">
+<link rel="manifest" href="./manifest.webmanifest?v=20260911-1120">
 <link rel="icon" href="./app-icon.svg?v=20260907-0915" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260907-0915">
 <style>
@@ -25,17 +25,45 @@ h1{font-size:24px;margin:0 0 10px;letter-spacing:-.04em}.sub{font-size:13px;line
 <div class="wrap"><div class="card">
 <img class="icon" src="./app-icon.svg?v=20260907-0915" alt="">
 <h1>우리집 재무 대시보드</h1>
-<div class="sub" id="msg">설치 준비 중입니다.</div>
+<div class="sub" id="msg">최신 버전으로 여는 중입니다.</div>
 <button class="btn" id="installBtn" type="button" hidden>앱으로 설치</button>
-<a class="btn secondary" href="./index.html?v=20260911-1105">대시보드 열기</a>
-<div class="small" id="hint">앱으로 설치하면 삼성인터넷 배지 없이 독립 아이콘으로 표시됩니다.</div>
+<a class="btn secondary" id="openBtn" href="./index.html?v=20260911-1120">대시보드 열기</a>
+<div class="small" id="hint">캐시를 초기화하고 최신 화면을 불러옵니다.</div>
 </div></div>
 <script>
 let deferredPrompt=null;
 const btn=document.getElementById('installBtn');
 const msg=document.getElementById('msg');
 const hint=document.getElementById('hint');
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js?v=20260911-1105').catch(()=>{});}
+const openBtn=document.getElementById('openBtn');
+const VERSION='20260911-1120';
+const isStandalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+
+async function installFreshWorker(){
+  if(!('serviceWorker' in navigator))return;
+  try{
+    const regs=await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r=>r.unregister()));
+  }catch(e){}
+  try{
+    if('caches' in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k)));
+    }
+  }catch(e){}
+  try{
+    await navigator.serviceWorker.register('./service-worker.js?v='+VERSION,{updateViaCache:'none'});
+    await navigator.serviceWorker.ready;
+  }catch(e){}
+}
+
+async function openFresh(){
+  msg.textContent='최신 버전으로 여는 중입니다.';
+  await installFreshWorker();
+  const url='./index.html?force='+VERSION+'-'+Date.now()+(isStandalone?'&app=1':'');
+  location.replace(url);
+}
+
 window.addEventListener('beforeinstallprompt',e=>{
   e.preventDefault();
   deferredPrompt=e;
@@ -50,12 +78,17 @@ btn.addEventListener('click',async()=>{
   btn.hidden=true;
 });
 window.addEventListener('appinstalled',()=>{msg.textContent='설치 완료. 홈 화면 아이콘으로 실행하세요.';hint.textContent='';});
-if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true){location.replace('./index.html?v=20260911-1105&app=1');}
-setTimeout(()=>{
-  if(!deferredPrompt){
-    msg.innerHTML='이 브라우저에서는 설치 버튼이 안 뜰 수 있습니다.<br><b>Chrome으로 이 페이지를 열면 설치 버튼이 나타납니다.</b>';
-  }
-},1800);
+openBtn.addEventListener('click',e=>{e.preventDefault();openFresh();});
+
+if(isStandalone){openFresh();}
+else{
+  installFreshWorker();
+  setTimeout(()=>{
+    if(!deferredPrompt){
+      msg.innerHTML='대시보드를 최신 버전으로 열 수 있습니다.';
+    }
+  },1200);
+}
 </script>
 </body>
 </html>
