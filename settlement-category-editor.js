@@ -3,27 +3,33 @@
 
   const SUPABASE_URL='https://ixuxaqerdftadfnkxxui.supabase.co';
   const SUPABASE_KEY='sb_publishable_2Q42l50u-YjgBmu5xDvoAA_LUtLhm8j';
-  const CATEGORIES=[
-    '생활비',
-    '식비/외식',
-    '사업비',
-    '교통/주유',
-    '의료/건강',
-    '육아/교육',
-    '구독/서비스',
-    '의류/쇼핑',
-    '주거/월세',
-    '임대/도배비',
-    '임대/바닥공사비',
-    '현금인출',
-    '송금/기타',
-    '기타',
-    '미분류'
+
+  const TAXONOMY=[
+    ['수입',['현금','상여금','부수입','월세수입','투자수익','보증금','기타수입']],
+    ['저축',['적금','예금','근로소득저축','대출상환','자본소득저축']],
+    ['고정지출',['주거비','보험료','통신비','교통비','주거비기타','대출원리금']],
+    ['식비',['마트','편의점','외식']],
+    ['용돈',['부모님','가족']],
+    ['생활용품',['생필품/소모품','수리비','주방/욕실']],
+    ['의복/미용',['의류','뷰티','헤어']],
+    ['육아비',['분유/기저귀','병원비','의류','소모품','기타']],
+    ['건강',['병원/약국','영양제']],
+    ['자기계발',['강의','책','응시료','공연']],
+    ['경조사',['가족','지인']],
+    ['투자관련',['부동산구매','다가구운영비','기타비용','세금','보증금반환']],
+    ['차량',['주유비','수리비','범칙금','기타']],
+    ['공연/예술',['주최외부미팅','술외부미팅']],
+    ['선물',['가족','지인']],
+    ['취미',['여행','운동 등','공연/영화','기타']],
+    ['외부식비',['주최외부미팅','술외부미팅']]
   ];
 
+  const VALUES=new Set(TAXONOMY.flatMap(([group,items])=>items.map(item=>`${group}/${item}`)));
   const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'family-finance-auth'}
   });
+
+  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function injectStyle(){
     if(document.getElementById('transactionCategoryEditorStyles'))return;
@@ -44,8 +50,20 @@
   }
 
   function optionMarkup(current){
-    const values=CATEGORIES.includes(current)?CATEGORIES:[current,...CATEGORIES];
-    return values.map(value=>`<option value="${value.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"${value===current?' selected':''}>${value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</option>`).join('');
+    let html='';
+    if(current && !VALUES.has(current) && current!=='미분류'){
+      html+=`<optgroup label="현재 분류"><option value="${esc(current)}" selected>${esc(current)}</option></optgroup>`;
+    }
+    TAXONOMY.forEach(([group,items])=>{
+      html+=`<optgroup label="${esc(group)}">`;
+      items.forEach(item=>{
+        const value=`${group}/${item}`;
+        html+=`<option value="${esc(value)}"${value===current?' selected':''}>${esc(item)}</option>`;
+      });
+      html+='</optgroup>';
+    });
+    html+=`<optgroup label="관리"><option value="미분류"${current==='미분류'?' selected':''}>미분류</option></optgroup>`;
+    return html;
   }
 
   function enhanceRows(){
@@ -60,7 +78,7 @@
       if(!id||!editor)return;
       const wrap=document.createElement('div');
       wrap.className='category-editor';
-      wrap.innerHTML=`<label class="category-editor-label">카테고리</label><select class="category-select" data-id="${id}" aria-label="거래 카테고리">${optionMarkup(current)}</select><div class="category-save-status" aria-live="polite"></div>`;
+      wrap.innerHTML=`<label class="category-editor-label">카테고리</label><select class="category-select" data-id="${esc(id)}" aria-label="거래 카테고리">${optionMarkup(current)}</select><div class="category-save-status" aria-live="polite"></div>`;
       editor.before(wrap);
     });
   }
