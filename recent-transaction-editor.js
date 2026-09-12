@@ -134,16 +134,12 @@
   async function syncRows(){
     const host=document.getElementById('txrows');
     if(!host)return;
-    const {data,error}=await client.from('transactions').select('id,occurred_at,source,account,merchant,category,amount,memo').order('occurred_at',{ascending:false}).limit(5);
-    if(error)return;
-    recentRows=data||[];
+    recentRows=Array.isArray(window.__visibleRecentTransactions)?window.__visibleRecentTransactions:[];
     const byId=new Map(recentRows.map(tx=>[String(tx.id),tx]));
-    const domRows=[...host.querySelectorAll('.tx-row')].slice(0,5);
-    domRows.forEach((row,index)=>{
-      const existingId=row.dataset.recentEdit;
-      const tx=(existingId&&byId.get(String(existingId)))||(!existingId?recentRows[index]:null);
+    const domRows=[...host.querySelectorAll('.tx-row[data-recent-edit]')].slice(0,5);
+    domRows.forEach(row=>{
+      const tx=byId.get(String(row.dataset.recentEdit));
       if(!tx)return;
-      if(!existingId)row.dataset.recentEdit=tx.id;
       row.tabIndex=0;
       row.setAttribute('role','button');
       row.setAttribute('aria-label',`${tx.merchant||'거래'} 수정`);
@@ -162,6 +158,7 @@
     if(id===undefined||id===null||String(id).trim()==='')return;
     const key=String(id);
     let tx=recentRows.find(item=>String(item.id)===key);
+    if(!tx)tx=(Array.isArray(window.__visibleRecentTransactions)?window.__visibleRecentTransactions:[]).find(item=>String(item.id)===key);
     if(!tx){
       const {data,error}=await client.from('transactions')
         .select('id,occurred_at,source,account,merchant,category,amount,memo')
@@ -196,6 +193,7 @@
       openById(row.dataset.recentEdit);
     });
     document.addEventListener('keydown',event=>{if(event.key==='Escape')destroyModal();});
+    window.addEventListener('recent-transactions-rendered',scheduleSync);
     scheduleSync();
   }
 
