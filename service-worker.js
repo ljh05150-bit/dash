@@ -1,4 +1,4 @@
-const CACHE="family-finance-v3";
+const CACHE="family-finance-v4-20260913";
 
 self.addEventListener("install",event=>{
   self.skipWaiting();
