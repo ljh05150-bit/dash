@@ -137,11 +137,13 @@
     const {data,error}=await client.from('transactions').select('id,occurred_at,source,account,merchant,category,amount,memo').order('occurred_at',{ascending:false}).limit(5);
     if(error)return;
     recentRows=data||[];
+    const byId=new Map(recentRows.map(tx=>[String(tx.id),tx]));
     const domRows=[...host.querySelectorAll('.tx-row')].slice(0,5);
     domRows.forEach((row,index)=>{
-      const tx=recentRows[index];
+      const existingId=row.dataset.recentEdit;
+      const tx=(existingId&&byId.get(String(existingId)))||(!existingId?recentRows[index]:null);
       if(!tx)return;
-      row.dataset.recentEdit=tx.id;
+      if(!existingId)row.dataset.recentEdit=tx.id;
       row.tabIndex=0;
       row.setAttribute('role','button');
       row.setAttribute('aria-label',`${tx.merchant||'거래'} 수정`);
