@@ -2,7 +2,7 @@
   "name": "우리집 재무 대시보드",
   "short_name": "우리집 재무",
   "id": "/dash/app.html",
-  "start_url": "/dash/app.html?source=pwa&v=20260911-1120",
+  "start_url": "/dash/app.html?source=pwa&v=20260913-0250",
   "scope": "/dash/",
   "display": "standalone",
   "background_color": "#0b0d12",
