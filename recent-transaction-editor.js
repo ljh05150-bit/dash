@@ -170,6 +170,8 @@
     openModal(tx);
   }
 
+  window.openRecentTransaction=openById;
+
   function setup(){
     const host=document.getElementById('txrows');
     if(!host)return;
