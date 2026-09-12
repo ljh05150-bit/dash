@@ -158,6 +158,21 @@
 
   function scheduleSync(){clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncRows(),40);}
 
+  async function openById(id){
+    if(id===undefined||id===null||String(id).trim()==='')return;
+    const key=String(id);
+    let tx=recentRows.find(item=>String(item.id)===key);
+    if(!tx){
+      const {data,error}=await client.from('transactions')
+        .select('id,occurred_at,source,account,merchant,category,amount,memo')
+        .eq('id',id)
+        .single();
+      if(error||!data)return;
+      tx=data;
+    }
+    openModal(tx);
+  }
+
   function setup(){
     const host=document.getElementById('txrows');
     if(!host)return;
@@ -168,16 +183,17 @@
     host.addEventListener('click',event=>{
       const row=event.target.closest('.tx-row[data-recent-edit]');
       if(!row)return;
-      const tx=recentRows.find(item=>item.id===row.dataset.recentEdit);
-      if(tx)openModal(tx);
+      event.preventDefault();
+      event.stopPropagation();
+      openById(row.dataset.recentEdit);
     });
     host.addEventListener('keydown',event=>{
       if(!['Enter',' '].includes(event.key))return;
       const row=event.target.closest('.tx-row[data-recent-edit]');
       if(!row)return;
       event.preventDefault();
-      const tx=recentRows.find(item=>item.id===row.dataset.recentEdit);
-      if(tx)openModal(tx);
+      event.stopPropagation();
+      openById(row.dataset.recentEdit);
     });
     document.addEventListener('keydown',event=>{if(event.key==='Escape')destroyModal();});
     scheduleSync();
