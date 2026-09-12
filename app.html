@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>우리집 재무 대시보드</title>
-<link rel="manifest" href="./manifest.webmanifest?v=20260913-0254">
+<link rel="manifest" href="./manifest.webmanifest?v=20260913-0258">
 <link rel="icon" href="./app-icon.svg?v=20260907-0915" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260907-0915">
 <style>
@@ -27,7 +27,7 @@ h1{font-size:24px;margin:0 0 10px;letter-spacing:-.04em}.sub{font-size:13px;line
 <h1>우리집 재무 대시보드</h1>
 <div class="sub" id="msg">최신 버전으로 여는 중입니다.</div>
 <button class="btn" id="installBtn" type="button" hidden>앱으로 설치</button>
-<a class="btn secondary" id="openBtn" href="./index.html?v=20260913-0254">대시보드 열기</a>
+<a class="btn secondary" id="openBtn" href="./index.html?v=20260913-0258">대시보드 열기</a>
 <div class="small" id="hint">캐시를 초기화하고 최신 화면을 불러옵니다.</div>
 </div></div>
 <script>
@@ -36,7 +36,7 @@ const btn=document.getElementById('installBtn');
 const msg=document.getElementById('msg');
 const hint=document.getElementById('hint');
 const openBtn=document.getElementById('openBtn');
-const VERSION='20260913-0254';
+const VERSION='20260913-0258';
 const isStandalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
 
 async function installFreshWorker(){
