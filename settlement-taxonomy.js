@@ -18,6 +18,7 @@
     const raw=String(value||'미분류').trim()||'미분류';
     const compact=raw.replace(/\s+/g,'');
     if(raw==='외식')return '식비/외식';
+    if(raw==='육아'||raw==='육아/교육'||raw==='육아비'||raw.startsWith('육아비/'))return '육아비';
     if(RENT_ALIASES.has(raw)||RENT_ALIASES.has(compact))return RENT;
     return raw;
   }
