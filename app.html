@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>우리집 재무 대시보드</title>
-<link rel="manifest" href="./manifest.webmanifest?v=20260913-1206">
+<link rel="manifest" href="./manifest.webmanifest?v=20260913-1208">
 <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg">
 <style>
@@ -17,7 +17,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#06101d}
 </style>
 </head>
 <body>
-<iframe id="dashFrame" src="./index.html?appframe=20260913-1206" title="우리집 재무 대시보드"></iframe>
+<iframe id="dashFrame" src="./index.html?appframe=20260913-1208" title="우리집 재무 대시보드"></iframe>
 <script>
 const frame=document.getElementById('dashFrame');
 let lastOpen=0;
@@ -55,9 +55,49 @@ function bindRecentClicks(){
   }catch(e){}
 }
 
+
+let pullStartY=null;
+let pullReady=false;
+
+function bindPullToRefresh(){
+  try{
+    const doc=frame.contentDocument;
+    if(!doc||doc.__pullRefreshBound)return;
+    doc.__pullRefreshBound=true;
+
+    doc.addEventListener('touchstart',e=>{
+      const scroller=doc.scrollingElement||doc.documentElement;
+      const y=e.touches&&e.touches[0]?e.touches[0].clientY:null;
+      if(typeof y==='number' && (scroller?.scrollTop||0)<=0){
+        pullStartY=y;
+        pullReady=false;
+      }else{
+        pullStartY=null;
+        pullReady=false;
+      }
+    },{passive:true});
+
+    doc.addEventListener('touchmove',e=>{
+      if(pullStartY===null)return;
+      const y=e.touches&&e.touches[0]?e.touches[0].clientY:null;
+      if(typeof y==='number' && y-pullStartY>=90) pullReady=true;
+    },{passive:true});
+
+    doc.addEventListener('touchend',()=>{
+      if(pullReady){
+        frame.src='./index.html?appframe=20260913-1208&refresh='+Date.now();
+      }
+      pullStartY=null;
+      pullReady=false;
+    },{passive:true});
+  }catch(e){}
+}
+
 frame.addEventListener('load',()=>{
   bindRecentClicks();
+  bindPullToRefresh();
   setTimeout(bindRecentClicks,300);
+  setTimeout(bindPullToRefresh,300);
   setTimeout(bindRecentClicks,1200);
 });
 
