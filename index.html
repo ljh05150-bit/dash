@@ -130,9 +130,18 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 @media(min-width:720px){.summary-grid{grid-template-columns:repeat(4,1fr)}.rent-grid{grid-template-columns:1fr 1fr}.stock-row{grid-template-columns:1.15fr 145px 1fr 16px}.spark svg{width:135px}.month-bottom{grid-template-columns:150px 1fr}.donut-wrap,.donut{width:145px;height:145px}}
 @media(max-width:370px){.month-bottom{grid-template-columns:112px 1fr}.donut-wrap,.donut{width:110px;height:110px}.donut:after{inset:22px}.stock-row{grid-template-columns:minmax(0,1fr) 76px minmax(102px,.9fr) 12px}.spark svg{width:74px}}
 
+
+#pullRefreshIndicator{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:50%;transform:translate(-50%,-70px);z-index:20000;display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:999px;background:#10243a;border:1px solid #315d83;color:#dcecff;font-size:12px;font-weight:750;box-shadow:0 8px 28px rgba(0,0,0,.32);opacity:0;transition:transform .16s ease,opacity .16s ease;pointer-events:none}
+#pullRefreshIndicator.show{opacity:1}
+#pullRefreshIndicator.ready{background:#16446d}
+#pullRefreshSpinner{width:15px;height:15px;border:2px solid #6686a6;border-top-color:#dcecff;border-radius:50%;transform:rotate(0deg)}
+#pullRefreshIndicator.loading #pullRefreshSpinner{animation:pullSpin .7s linear infinite}
+@keyframes pullSpin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
+<div id="pullRefreshIndicator" aria-live="polite"><span id="pullRefreshSpinner"></span><span id="pullRefreshText">당겨서 새로고침</span></div>
+
 <div class="wrap">
   <div id="auth" class="card">
     <h1>우리집 재무 대시보드</h1>
@@ -399,7 +408,7 @@ function renderStocks(rows){currentStockRows=rows;window.currentStockRows=rows;c
 function renderRent(rents){rentMonthLabel.textContent=monthLabel(new Date())+' 기준';rentGrid.innerHTML=rents.map(r=>{const pct=r.charge>0?Math.max(0,Math.min(100,r.paid/r.charge*100)):0;const unpaid=r.live?Math.max(r.charge-r.paid,0):null;return `<div class="rent-card"><div class="rent-top"><div><div class="rent-name">${r.name}</div><div class="rent-info">낙찰가 ${won(r.value)} · 대출 ${won(r.loan)} · 지분 ${won(r.value-r.loan)}</div></div><span class="pill"><span class="dot" style="background:${r.live?'var(--green)':'var(--orange)'}"></span>${r.status}</span></div><div class="rent-label-row"><span class="rent-label">${monthLabel(new Date())} 수납</span><span class="rent-amount num">${r.live?won(r.paid):'미확인'} / ${won(r.charge)}</span></div><div class="progress"><div class="progress-fill" style="width:${pct}%"></div><div class="progress-pct">${r.live?pct.toFixed(0)+'%':'미확인'}</div></div><div class="rent-foot">${r.live?'수납률 '+pct.toFixed(1)+'% · 미수납 '+won(unpaid):r.status+' · 수납액 집계 제외'} · 보증금 ${won(r.deposit)}${r.roomCount?` · ${r.roomCount}실`:''}</div></div>`}).join('');}
 
 function renderCategories(tx){const thism=ym(new Date());const map={};let total=0;tx.forEach(t=>{if(ym(new Date(t.occurred_at))!==thism)return;const a=Number(t.amount);if(a>=0)return;const cat=t.category||'미분류';map[cat]=(map[cat]||0)+Math.abs(a);total+=Math.abs(a)});let items=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);if(!items.length)items=[['미분류',1]];const colors=['#8c6cff','#ff5b65','#4b9dff','#ffb33c','#52d1c7'];let acc=0;const seg=items.map(([k,v],i)=>{const pct=total>0?v/total*100:(i===0?100:0);const st=acc;acc+=pct;return `${colors[i]} ${st}% ${acc}%`});expenseDonut.style.background=`conic-gradient(${seg.join(',')})`;categoryList.innerHTML=items.map(([k,v],i)=>{const pct=total>0?v/total*100:(i===0?100:0);return `<div class="cat-row"><span class="cat-dot" style="background:${colors[i]}"></span><span>${k}</span><span class="cat-val">${pct.toFixed(0)}%</span></div>`}).join('');}
-function renderTransactions(tx){const visible=tx.slice(0,5);window.__visibleRecentTransactions=visible;txrows.innerHTML=visible.map(t=>{const a=Number(t.amount||0);const id=t.id==null?'':String(t.id).replace(/"/g,'&quot;');return `<div class="tx-row"${id?` data-recent-edit="${id}" onclick="openRecentTransaction('${id}')"`:''}><div class="tx-time">${new Date(t.occurred_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class="tx-main"><div class="tx-merchant">${t.merchant||t.category||'거래'}</div><div class="tx-account">${t.account||t.source||''} · ${t.category||'미분류'}</div></div><div class="tx-amt ${a>=0?'pos':'neg'}">${a>=0?'+':'-'}${wonFull(Math.abs(a))}</div></div>`}).join('')||'<div class="subtitle">아직 거래내역이 없습니다.</div>';window.dispatchEvent(new CustomEvent('recent-transactions-rendered'));}
+function renderTransactions(tx){const visible=tx.slice(0,5);window.__visibleRecentTransactions=visible;txrows.innerHTML=visible.map(t=>{const a=Number(t.amount||0);const id=t.id==null?'':encodeURIComponent(String(t.id));const href=id?`./index.html?tx=${id}#transactionsSection`:'#transactionsSection';return `<a class="tx-row" href="${href}"><div class="tx-time">${new Date(t.occurred_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class="tx-main"><div class="tx-merchant">${t.merchant||t.category||'거래'}</div><div class="tx-account">${t.account||t.source||''} · ${t.category||'미분류'}</div></div><div class="tx-amt ${a>=0?'pos':'neg'}">${a>=0?'+':'-'}${wonFull(Math.abs(a))}</div></a>`}).join('')||'<div class="subtitle">아직 거래내역이 없습니다.</div>';const requested=new URLSearchParams(location.search).get('tx');if(requested){requestAnimationFrame(()=>{openRecentTransaction(requested);const u=new URL(location.href);u.searchParams.delete('tx');history.replaceState(null,'',u.pathname+u.search+u.hash);});}}
 function renderTrend(snaps,currentNetWorth){const arr=NetWorth.monthlySnapshots(snaps).filter(r=>r.value!==null).slice(-12);if(!arr.length)arr.push({key:ym(new Date()),year:new Date().getFullYear(),month:new Date().getMonth()+1,value:currentNetWorth});trendWrap.innerHTML=NetWorth.dashboardChart(arr);trendCurrent.textContent='현재 '+won(currentNetWorth);if(arr.length>=2){const {rate}=NetWorth.change(arr[arr.length-1],arr[0]);trendBadge.textContent='최근 '+arr.length+'개월'+(rate===null?' · 증감률 계산 불가':' '+(rate>=0?'+':'')+rate.toFixed(1)+'%')}else trendBadge.textContent='월말 자동 저장';}
 function inspectTrend(event){const target=event.target.closest('[data-trend-label]');if(!target)return;document.getElementById('trendReadout').textContent=target.dataset.trendLabel;trendWrap.querySelectorAll('[data-trend-label]').forEach(button=>button.setAttribute('aria-pressed',String(button===target)));}
 ['click','pointerover','focusin'].forEach(type=>trendWrap.addEventListener(type,inspectTrend));
@@ -433,6 +442,55 @@ if(PREVIEW_MODE){renderPreview()}else{sb.auth.onAuthStateChange((_e,s)=>show(!!s
 
 function bindAvailableAssetsInteraction(){const card=document.getElementById('availableCard');if(card){card.addEventListener('click',openAvailableAssets);card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openAvailableAssets();}});}}
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bindAvailableAssetsInteraction,{once:true});}else{bindAvailableAssetsInteraction();}
+
+(function(){
+  let startY=null, distance=0, tracking=false, refreshing=false;
+  const indicator=document.getElementById('pullRefreshIndicator');
+  const text=document.getElementById('pullRefreshText');
+  const spinner=document.getElementById('pullRefreshSpinner');
+  function reset(){
+    if(refreshing)return;
+    startY=null;distance=0;tracking=false;
+    indicator.classList.remove('show','ready');
+    indicator.style.transform='translate(-50%,-70px)';
+    spinner.style.transform='rotate(0deg)';
+    text.textContent='당겨서 새로고침';
+  }
+  document.addEventListener('touchstart',e=>{
+    if(refreshing)return;
+    if((window.scrollY||document.documentElement.scrollTop||0)<=0 && e.touches.length===1){
+      startY=e.touches[0].clientY;tracking=true;distance=0;
+    }
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!tracking||startY===null||refreshing)return;
+    const y=e.touches[0].clientY;
+    distance=Math.max(0,y-startY);
+    if(distance<=0)return;
+    if(e.cancelable)e.preventDefault();
+    const shown=Math.min(92,distance*.62);
+    indicator.classList.add('show');
+    indicator.style.transform=`translate(-50%,${-54+shown}px)`;
+    spinner.style.transform=`rotate(${Math.min(300,distance*3)}deg)`;
+    if(distance>=82){indicator.classList.add('ready');text.textContent='놓으면 새로고침';}
+    else{indicator.classList.remove('ready');text.textContent='당겨서 새로고침';}
+  },{passive:false});
+  document.addEventListener('touchend',()=>{
+    if(!tracking||refreshing)return;
+    if(distance>=82){
+      refreshing=true;
+      indicator.classList.add('show','loading');
+      indicator.classList.remove('ready');
+      indicator.style.transform='translate(-50%,8px)';
+      text.textContent='새로고침 중…';
+      const u=new URL(location.href);
+      u.searchParams.delete('tx');
+      u.searchParams.set('refresh',Date.now());
+      setTimeout(()=>location.replace(u.toString()),180);
+    }else reset();
+  },{passive:true});
+  document.addEventListener('touchcancel',reset,{passive:true});
+})();
 
 </script>
 </body>
