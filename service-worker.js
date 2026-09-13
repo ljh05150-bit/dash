@@ -1,4 +1,4 @@
-const CACHE="family-finance-20260913-1235";
+const CACHE="family-finance-20260913-1315";
 self.addEventListener("install",event=>{self.skipWaiting();});
 self.addEventListener("activate",event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
