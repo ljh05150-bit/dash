@@ -100,9 +100,64 @@
     document.getElementById('auction-monitor-shortcut-style')?.remove();
   }
 
+  function esc(v){
+    return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function recentSpendRows(tx){
+    return (Array.isArray(tx)?tx:[])
+      .filter(t=>Number(t?.amount)<0 && String(t?.category||'').trim()!=='내부이체')
+      .slice(0,5);
+  }
+
+  function openRecentById(id,event){
+    if(event?.__recentTxHandled)return;
+    if(event)event.__recentTxHandled=true;
+    if(!id||typeof global.openRecentTransaction!=='function')return;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    global.openRecentTransaction(String(id));
+    if(!history.state?.recentTransactionModal){
+      const state=Object.assign({},history.state||{}, {recentTransactionModal:true,recentTransactionId:String(id)});
+      history.pushState(state,'',location.href);
+    }
+  }
+
+  function installStableRecentRenderer(){
+    if(global.__stableRecentRendererInstalled)return;
+    if(typeof global.renderTransactions!=='function'){
+      setTimeout(installStableRecentRenderer,0);
+      return;
+    }
+    global.__stableRecentRendererInstalled=true;
+    global.renderTransactions=function(tx){
+      const host=document.getElementById('txrows');
+      if(!host)return;
+      const visible=recentSpendRows(tx);
+      global.__visibleRecentTransactions=visible;
+      host.innerHTML=visible.map(t=>{
+        const a=Math.abs(Number(t.amount||0));
+        const id=t.id==null?'':String(t.id);
+        const when=new Date(t.occurred_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+        const merchant=t.merchant||t.category||'거래';
+        const account=t.account||t.source||'';
+        const category=t.category||'미분류';
+        return `<div class="tx-row" role="button" tabindex="0" data-tx-id="${esc(id)}" data-recent-edit="${esc(id)}"><div class="tx-time">${esc(when)}</div><div class="tx-main"><div class="tx-merchant">${esc(merchant)}</div><div class="tx-account">${esc(account)} · ${esc(category)}</div></div><div class="tx-amt neg">-₩${Math.round(a).toLocaleString('ko-KR')}</div></div>`;
+      }).join('')||'<div class="subtitle">아직 거래내역이 없습니다.</div>';
+      host.querySelectorAll('.tx-row[data-tx-id]').forEach(row=>{
+        row.addEventListener('click',event=>openRecentById(row.dataset.txId,event));
+        row.addEventListener('keydown',event=>{
+          if(event.key==='Enter'||event.key===' ')openRecentById(row.dataset.txId,event);
+        });
+      });
+      global.dispatchEvent(new CustomEvent('recent-transactions-rendered'));
+    };
+    setTimeout(()=>{if(typeof global.load==='function')global.load();},0);
+  }
+
   function transactionIdFromRow(row,list){
     try{
-      const direct=row?.dataset?.txId;
+      const direct=row?.dataset?.txId||row?.dataset?.recentEdit;
       if(direct)return String(direct);
       const href=row?.getAttribute?.('href');
       if(href){
@@ -121,28 +176,16 @@
     const list=document.getElementById('txrows');
     if(!list||list.dataset.recentTxBound==='1')return;
     list.dataset.recentTxBound='1';
-
-    const activate=(event,row)=>{
-      if(!row||!list.contains(row))return;
-      const id=transactionIdFromRow(row,list);
-      if(!id||typeof global.openRecentTransaction!=='function')return;
-      event.preventDefault();
-      event.stopPropagation();
-      global.openRecentTransaction(id);
-      if(!history.state?.recentTransactionModal){
-        const state=Object.assign({},history.state||{}, {recentTransactionModal:true,recentTransactionId:id});
-        history.pushState(state,'',location.href);
-      }
-    };
-
     list.addEventListener('click',event=>{
       const row=event.target.closest?.('.tx-row');
-      activate(event,row);
+      if(!row||!list.contains(row))return;
+      openRecentById(transactionIdFromRow(row,list),event);
     },true);
     list.addEventListener('keydown',event=>{
       if(event.key!=='Enter'&&event.key!==' ')return;
       const row=event.target.closest?.('.tx-row');
-      activate(event,row);
+      if(!row||!list.contains(row))return;
+      openRecentById(transactionIdFromRow(row,list),event);
     },true);
   }
 
@@ -162,9 +205,7 @@
       return originalClose.apply(this,arguments);
     };
     global.addEventListener('popstate',()=>{
-      if(!history.state?.recentTransactionModal&&document.getElementById('recentTransactionModal')){
-        originalClose();
-      }
+      if(!history.state?.recentTransactionModal&&document.getElementById('recentTransactionModal'))originalClose();
     });
   }
 
@@ -172,18 +213,30 @@
     if(global.__dashboardPageshowBound)return;
     global.__dashboardPageshowBound=true;
     global.addEventListener('pageshow',event=>{
-      if(event.persisted&&typeof global.load==='function'){
-        setTimeout(()=>global.load(),0);
-      }
+      if(event.persisted&&typeof global.load==='function')setTimeout(()=>global.load(),0);
     });
+  }
+
+  function keepServiceWorkerFresh(){
+    if(!('serviceWorker' in navigator)||global.__freshSwScheduled)return;
+    global.__freshSwScheduled=true;
+    global.addEventListener('load',()=>{
+      setTimeout(()=>{
+        navigator.serviceWorker.register('./service-worker.js?rev=20260913-1300',{updateViaCache:'none'})
+          .then(reg=>reg.update())
+          .catch(()=>{});
+      },800);
+    },{once:true});
   }
 
   function installDashboardEnhancements(){
     installRecentTransactionLimit();
     removeAuctionShortcut();
+    installStableRecentRenderer();
     installRecentTransactionInteraction();
     installRecentTransactionHistory();
     installBfcacheRefresh();
+    keepServiceWorkerFresh();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installDashboardEnhancements,{once:true});
   else installDashboardEnhancements();
