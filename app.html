@@ -8,18 +8,33 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>우리집 재무 대시보드</title>
-<link rel="manifest" href="./manifest.webmanifest?v=20260913-1208">
+<link rel="manifest" href="./manifest.webmanifest?v=20260913-1212">
 <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg">
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#06101d}
-#dashFrame{display:block;width:100%;height:100%;border:0;background:#06101d}
+#pullZone{position:fixed;top:0;left:0;right:0;height:38px;z-index:99999;touch-action:none;background:transparent}#dashFrame{display:block;width:100%;height:100%;border:0;background:#06101d}
 </style>
 </head>
 <body>
-<iframe id="dashFrame" src="./index.html?appframe=20260913-1208" title="우리집 재무 대시보드"></iframe>
+<div id="pullZone" aria-hidden="true"></div>
+<iframe id="dashFrame" src="./index.html?appframe=20260913-1212" title="우리집 재무 대시보드"></iframe>
 <script>
 const frame=document.getElementById('dashFrame');
+const pullZone=document.getElementById('pullZone');
+let zoneStartY=null;
+pullZone.addEventListener('touchstart',e=>{
+  zoneStartY=e.touches&&e.touches[0]?e.touches[0].clientY:null;
+},{passive:true});
+pullZone.addEventListener('touchmove',e=>{
+  if(zoneStartY===null)return;
+  const y=e.touches&&e.touches[0]?e.touches[0].clientY:null;
+  if(typeof y==='number' && y-zoneStartY>70){
+    zoneStartY=null;
+    frame.src='./index.html?appframe=20260913-1212&refresh='+Date.now();
+  }
+},{passive:true});
+pullZone.addEventListener('touchend',()=>{zoneStartY=null;},{passive:true});
 let lastOpen=0;
 
 function bindRecentClicks(){
@@ -85,7 +100,7 @@ function bindPullToRefresh(){
 
     doc.addEventListener('touchend',()=>{
       if(pullReady){
-        frame.src='./index.html?appframe=20260913-1208&refresh='+Date.now();
+        frame.src='./index.html?appframe=20260913-1212&refresh='+Date.now();
       }
       pullStartY=null;
       pullReady=false;
