@@ -10,6 +10,20 @@
     const ZARITALK_URL=supabaseUrl+'/functions/v1/zaritalk-sync';
     const CONFIG={properties};
     function ym(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+    function compactWon(n){n=Number(n||0);const a=Math.abs(n),s=n<0?'-':'';if(a>=100000000)return s+(a/100000000).toFixed(a%100000000?2:0)+'억';if(a>=10000)return s+Math.round(a/10000).toLocaleString('ko-KR')+'만';return s+a.toLocaleString('ko-KR')+'원'}
+    function updateCurrentCashFlowCard(yearMonth,income,expense){
+      if(yearMonth!==ym(new Date()))return;
+      const label=document.getElementById('prevCfLabel');
+      const value=document.getElementById('prevMonthCF');
+      const sub=document.getElementById('prevMonthCFSub');
+      if(!label||!value||!sub)return;
+      const net=Number(income||0)-Number(expense||0);
+      const month=new Date().getMonth()+1;
+      label.textContent='이번달 순현금흐름';
+      value.textContent=compactWon(net);
+      value.className='summary-value num '+(net>=0?'good':'neg');
+      sub.textContent=month+'월 · 수입 '+compactWon(income)+' · 지출 '+compactWon(expense);
+    }
     function updateCurrentMonthSpend(yearMonth,expense){
       if(yearMonth!==ym(new Date()))return;
       const meta=document.querySelector('#transactionsSection .section-meta');
@@ -68,6 +82,9 @@
       setTimeout(()=>updateCurrentMonthSpend(yearMonth,expense),0);
       const bankRent=bankRentTotal(tx,yearMonth),zaritalkRent=zaritalkPaidTotal(z);
       income+=Math.max(0,zaritalkRent-bankRent);
+      updateCurrentCashFlowCard(yearMonth,income,expense);
+      setTimeout(()=>updateCurrentCashFlowCard(yearMonth,income,expense),0);
+      setTimeout(()=>updateCurrentCashFlowCard(yearMonth,income,expense),250);
       return {income,expense,net:income-expense,bankRent,zaritalkRent,rentIncome:Math.max(bankRent,zaritalkRent)};
     }
     function normalizeRent(z){
@@ -232,6 +249,7 @@
 
   function install(){
     installStyle();removeAuctionShortcut();installStableRecentRenderer();installInteraction();installHistory();installBfcacheRefresh();keepServiceWorkerFresh();
+    const currentLabel=document.getElementById('prevCfLabel');if(currentLabel)currentLabel.textContent='이번달 순현금흐름';
     global.__forceOpenRecentTransaction=id=>forceOpenModal(txById(id));
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
