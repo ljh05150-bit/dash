@@ -12,6 +12,12 @@
     '투자관련/인테리어비'
   ]);
 
+  const HOUSEHOLD_CARD_ALIASES=new Set([
+    '토스뱅크 부부생활비',
+    '부부생활비 카드',
+    '토스뱅크 부부생활비 카드'
+  ]);
+
   function canonical(value){
     const raw=String(value||'미분류').trim()||'미분류';
     const compact=raw.replace(/\s+/g,'');
@@ -25,21 +31,36 @@
     return major||raw;
   }
 
-  function normalize(record){
-    if(!record||typeof record!=='object')return record;
-    const categories=Object.create(null);
-    Object.entries(record.categories||{}).forEach(([label,amount])=>{
+  function canonicalPayment(value){
+    const raw=String(value||'미분류').trim()||'미분류';
+    if(HOUSEHOLD_CARD_ALIASES.has(raw))return '부부생활비 카드';
+    return raw;
+  }
+
+  function mergeMap(source,keyFn){
+    const result=Object.create(null);
+    Object.entries(source||{}).forEach(([label,amount])=>{
       const n=Number(amount);
       if(!Number.isFinite(n))return;
-      const key=canonical(label);
-      categories[key]=(categories[key]||0)+n;
+      const key=keyFn(label);
+      result[key]=(result[key]||0)+n;
     });
-    return {...record,categories};
+    return result;
+  }
+
+  function normalize(record){
+    if(!record||typeof record!=='object')return record;
+    return {
+      ...record,
+      categories:mergeMap(record.categories,canonical),
+      payment_methods:mergeMap(record.payment_methods,canonicalPayment)
+    };
   }
 
   if(global.SettlementData?.createRepository){
     const previous=global.SettlementData.createRepository;
     global.SettlementData.canonicalCategory=canonical;
+    global.SettlementData.canonicalPayment=canonicalPayment;
     global.SettlementData.createRepository=function(client,flow,now){
       const repo=previous(client,flow,now);
       return {
