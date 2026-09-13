@@ -91,7 +91,7 @@
     if(document.getElementById('recent-transaction-limit-style'))return;
     const style=document.createElement('style');
     style.id='recent-transaction-limit-style';
-    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #recentTransactionEditor[hidden]{display:none!important} #transactionsSection .section-meta{display:flex!important;flex-direction:column!important;align-items:flex-end!important;justify-content:center!important;gap:2px!important;text-align:right!important;white-space:nowrap!important} #transactionsSection .monthly-spend-label{display:block!important;font-size:10px!important;font-weight:650!important;letter-spacing:-.01em!important;color:var(--muted)!important;line-height:1.1!important} #transactionsSection .monthly-spend-value{display:block!important;font-size:18px!important;font-weight:830!important;letter-spacing:-.035em!important;color:var(--text)!important;line-height:1.05!important}';
+    style.textContent='#txrows .tx-row:nth-child(n+6){display:none!important} #recentTransactionEditor[hidden]{display:none!important} #transactionsSection .section-meta{display:flex!important;flex-direction:column!important;align-items:flex-end!important;justify-content:center!important;gap:2px!important;text-align:right!important;white-space:nowrap!important} #transactionsSection .monthly-spend-label{display:block!important;font-size:10px!important;font-weight:650!important;letter-spacing:-.01em!important;color:var(--muted)!important;line-height:1.1!important} #transactionsSection .monthly-spend-value{display:block!important;font-size:18px!important;font-weight:830!important;letter-spacing:-.035em!important;color:var(--text)!important;line-height:1.05!important} #txrows .tx-row{color:inherit!important;text-decoration:none!important;-webkit-tap-highlight-color:rgba(75,157,255,.08)} #txrows .tx-row:active{background:rgba(255,255,255,.025)}';
     document.head.appendChild(style);
   }
 
@@ -100,7 +100,91 @@
     document.getElementById('auction-monitor-shortcut-style')?.remove();
   }
 
-  function installDashboardEnhancements(){installRecentTransactionLimit();removeAuctionShortcut();}
+  function transactionIdFromRow(row,list){
+    try{
+      const direct=row?.dataset?.txId;
+      if(direct)return String(direct);
+      const href=row?.getAttribute?.('href');
+      if(href){
+        const id=new URL(href,location.href).searchParams.get('tx');
+        if(id)return decodeURIComponent(id);
+      }
+    }catch(e){}
+    const rows=Array.isArray(global.__visibleRecentTransactions)?global.__visibleRecentTransactions:[];
+    const rendered=Array.from(list?.querySelectorAll?.('.tx-row')||[]);
+    const idx=rendered.indexOf(row);
+    const tx=idx>=0?rows[idx]:null;
+    return tx?.id==null?'':String(tx.id);
+  }
+
+  function installRecentTransactionInteraction(){
+    const list=document.getElementById('txrows');
+    if(!list||list.dataset.recentTxBound==='1')return;
+    list.dataset.recentTxBound='1';
+
+    const activate=(event,row)=>{
+      if(!row||!list.contains(row))return;
+      const id=transactionIdFromRow(row,list);
+      if(!id||typeof global.openRecentTransaction!=='function')return;
+      event.preventDefault();
+      event.stopPropagation();
+      global.openRecentTransaction(id);
+      if(!history.state?.recentTransactionModal){
+        const state=Object.assign({},history.state||{}, {recentTransactionModal:true,recentTransactionId:id});
+        history.pushState(state,'',location.href);
+      }
+    };
+
+    list.addEventListener('click',event=>{
+      const row=event.target.closest?.('.tx-row');
+      activate(event,row);
+    },true);
+    list.addEventListener('keydown',event=>{
+      if(event.key!=='Enter'&&event.key!==' ')return;
+      const row=event.target.closest?.('.tx-row');
+      activate(event,row);
+    },true);
+  }
+
+  function installRecentTransactionHistory(){
+    if(global.__recentTransactionHistoryPatched)return;
+    const originalClose=global.closeRecentTransaction;
+    if(typeof originalClose!=='function'){
+      setTimeout(installRecentTransactionHistory,0);
+      return;
+    }
+    global.__recentTransactionHistoryPatched=true;
+    global.closeRecentTransaction=function(){
+      if(history.state?.recentTransactionModal){
+        history.back();
+        return;
+      }
+      return originalClose.apply(this,arguments);
+    };
+    global.addEventListener('popstate',()=>{
+      if(!history.state?.recentTransactionModal&&document.getElementById('recentTransactionModal')){
+        originalClose();
+      }
+    });
+  }
+
+  function installBfcacheRefresh(){
+    if(global.__dashboardPageshowBound)return;
+    global.__dashboardPageshowBound=true;
+    global.addEventListener('pageshow',event=>{
+      if(event.persisted&&typeof global.load==='function'){
+        setTimeout(()=>global.load(),0);
+      }
+    });
+  }
+
+  function installDashboardEnhancements(){
+    installRecentTransactionLimit();
+    removeAuctionShortcut();
+    installRecentTransactionInteraction();
+    installRecentTransactionHistory();
+    installBfcacheRefresh();
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installDashboardEnhancements,{once:true});
   else installDashboardEnhancements();
 
