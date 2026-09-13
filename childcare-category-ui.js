@@ -6,8 +6,23 @@
     return raw==='육아'||raw==='육아/교육'||raw==='육아비'||raw.startsWith('육아비/');
   }
 
+  function displayLabel(value){
+    const raw=String(value||'미분류').trim()||'미분류';
+    if(raw==='육아비'||raw==='미분류'||raw==='식비')return raw;
+    if(raw==='식비/외식')return '외식';
+    const parts=raw.split('/');
+    return parts[parts.length-1]||raw;
+  }
+
+  function cleanCategoryButton(){
+    const button=document.getElementById('safeV2Category');
+    if(!button||button.tagName!=='BUTTON')return;
+    const value=button.dataset.value||'미분류';
+    button.replaceChildren(document.createTextNode(displayLabel(value)));
+  }
+
   function mergeChildcareOptions(select){
-    if(!select)return;
+    if(!select||select.tagName!=='SELECT')return;
     const selected=select.value;
     const shouldSelect=isChildcare(selected);
 
@@ -29,11 +44,12 @@
     if(manage)select.insertBefore(group,manage);
     else select.appendChild(group);
 
-    if(shouldSelect)select.value='육아비';
+    select.value=shouldSelect?'육아비':selected;
   }
 
   function refresh(){
-    document.querySelectorAll('#safeV2Category,.category-select,#recentCategory,#recentEditCategory').forEach(mergeChildcareOptions);
+    cleanCategoryButton();
+    document.querySelectorAll('.category-select,#recentCategory,#recentEditCategory').forEach(mergeChildcareOptions);
   }
 
   let scheduled=false;
@@ -48,8 +64,8 @@
     refresh();
     observer.observe(document.body,{childList:true,subtree:true});
     document.addEventListener('change',event=>{
-      const select=event.target.closest?.('#safeV2Category,.category-select,#recentCategory,#recentEditCategory');
-      if(select&&isChildcare(select.value))select.value='육아비';
+      const select=event.target.closest?.('.category-select,#recentCategory,#recentEditCategory');
+      if(select&&select.tagName==='SELECT'&&isChildcare(select.value))select.value='육아비';
     },true);
   }
 
