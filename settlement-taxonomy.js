@@ -1,7 +1,6 @@
 (function(global){
   'use strict';
 
-  const RENT='투자관련/다가구운영비';
   const RENT_ALIASES=new Set([
     '사업비',
     '임대사업비','임대/사업비',
@@ -10,17 +9,20 @@
     '임대방충망수리비','임대/방충망수리비',
     '임대도배비','임대/도배비',
     '임대바닥공사비','임대/바닥공사비',
-    '투자관련/인테리어비',
-    RENT
+    '투자관련/인테리어비'
   ]);
 
   function canonical(value){
     const raw=String(value||'미분류').trim()||'미분류';
     const compact=raw.replace(/\s+/g,'');
-    if(raw==='외식')return '식비/외식';
+
+    if(raw==='미분류'||raw==='내부이체')return raw;
+    if(raw==='외식'||raw==='식비/마트'||raw==='식비/편의점')return '식비';
     if(raw==='육아'||raw==='육아/교육'||raw==='육아비'||raw.startsWith('육아비/'))return '육아비';
-    if(RENT_ALIASES.has(raw)||RENT_ALIASES.has(compact))return RENT;
-    return raw;
+    if(RENT_ALIASES.has(raw)||RENT_ALIASES.has(compact))return '투자관련';
+
+    const major=raw.split('/')[0]?.trim();
+    return major||raw;
   }
 
   function normalize(record){
