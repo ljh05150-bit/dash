@@ -75,7 +75,7 @@
         const category=String(t.category||'').trim();
         if(category==='내부이체')return;
         if(n>0&&String(t.source||'')==='toss_statement_refund'){expense-=n;return}
-        if(n>0&&category==='월세수입')return;
+        if(n>0&&(category==='월세수입'||category==='수입/보증금'||category==='보증금'||category==='임대보증금'))return;
         n>=0?income+=n:expense+=Math.abs(n);
       });
       expense=Math.max(0,expense);
