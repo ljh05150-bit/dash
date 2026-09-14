@@ -75,17 +75,18 @@
         const category=String(t.category||'').trim();
         if(category==='내부이체')return;
         if(n>0&&String(t.source||'')==='toss_statement_refund'){expense-=n;return}
+        if(n>0&&category==='월세수입')return;
         n>=0?income+=n:expense+=Math.abs(n);
       });
       expense=Math.max(0,expense);
       updateCurrentMonthSpend(yearMonth,expense);
       setTimeout(()=>updateCurrentMonthSpend(yearMonth,expense),0);
       const bankRent=bankRentTotal(tx,yearMonth),zaritalkRent=zaritalkPaidTotal(z);
-      income+=Math.max(0,zaritalkRent-bankRent);
+      income+=zaritalkRent;
       updateCurrentCashFlowCard(yearMonth,income,expense);
       setTimeout(()=>updateCurrentCashFlowCard(yearMonth,income,expense),0);
       setTimeout(()=>updateCurrentCashFlowCard(yearMonth,income,expense),250);
-      return {income,expense,net:income-expense,bankRent,zaritalkRent,rentIncome:Math.max(bankRent,zaritalkRent)};
+      return {income,expense,net:income-expense,bankRent,zaritalkRent,rentIncome:zaritalkRent};
     }
     function normalizeRent(z){
       const props=z?.ok===true&&Array.isArray(z.properties)?z.properties.filter(p=>p&&typeof p==='object'):[];
