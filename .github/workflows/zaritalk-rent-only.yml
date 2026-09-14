@@ -1,0 +1,48 @@
+name: Patch Zaritalk Rent Source
+
+on:
+  push:
+    paths:
+      - '.github/workflows/zaritalk-rent-only.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make Zaritalk the only rent-income source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('finance-core.js')
+          s = p.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  "if(n>0&&String(t.source||'')==='toss_statement_refund'){expense-=n;return}\n        n>=0?income+=n:expense+=Math.abs(n);",
+                  "if(n>0&&String(t.source||'')==='toss_statement_refund'){expense-=n;return}\n        if(n>0&&category==='월세수입')return;\n        n>=0?income+=n:expense+=Math.abs(n);"
+              ),
+              (
+                  "income+=Math.max(0,zaritalkRent-bankRent);",
+                  "income+=zaritalkRent;"
+              ),
+              (
+                  "rentIncome:Math.max(bankRent,zaritalkRent)",
+                  "rentIncome:zaritalkRent"
+              ),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit('expected finance-core.js pattern not found: ' + old[:60])
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "dashboard-bot"
+          git config user.email "dashboard-bot@users.noreply.github.com"
+          git add finance-core.js
+          git commit -m "Use Zaritalk only for rent income"
+          git push
