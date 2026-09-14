@@ -1,4 +1,4 @@
-name: One-shot dashboard fix
+name: One-shot rent detail install
 
 on:
   push:
@@ -16,33 +16,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Patch dashboard
+      - name: Install Zaritalk room detail UI
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text()
-
-          old="""function renderTransactions(tx){const visible=tx.slice(0,5);window.__visibleRecentTransactions=visible;txrows.innerHTML=visible.map(t=>{const a=Number(t.amount||0);const id=t.id==null?'':String(t.id).replace(/\"/g,'&quot;');return `<div class=\"tx-row\"${id?` data-recent-edit=\"${id}\" onclick=\"openRecentTransaction('${id}')\"`:''}><div class=\"tx-time\">${new Date(t.occurred_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class=\"tx-main\"><div class=\"tx-merchant\">${t.merchant||t.category||'거래'}</div><div class=\"tx-account\">${t.account||t.source||''} · ${t.category||'미분류'}</div></div><div class=\"tx-amt ${a>=0?'pos':'neg'}\">${a>=0?'+':'-'}${wonFull(Math.abs(a))}</div></div>`}).join('')||'<div class=\"subtitle\">아직 거래내역이 없습니다.</div>';window.dispatchEvent(new CustomEvent('recent-transactions-rendered'));}"""
-          new="""function renderTransactions(tx){const visible=tx.slice(0,5);window.__visibleRecentTransactions=visible;txrows.innerHTML=visible.map(t=>{const a=Number(t.amount||0);const id=t.id==null?'':encodeURIComponent(String(t.id));const href=id?`./index.html?tx=${id}#transactionsSection`:'#transactionsSection';return `<a class=\"tx-row\" href=\"${href}\"><div class=\"tx-time\">${new Date(t.occurred_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class=\"tx-main\"><div class=\"tx-merchant\">${t.merchant||t.category||'거래'}</div><div class=\"tx-account\">${t.account||t.source||''} · ${t.category||'미분류'}</div></div><div class=\"tx-amt ${a>=0?'pos':'neg'}\">${a>=0?'+':'-'}${wonFull(Math.abs(a))}</div></a>`}).join('')||'<div class=\"subtitle\">아직 거래내역이 없습니다.</div>';const requested=new URLSearchParams(location.search).get('tx');if(requested){requestAnimationFrame(()=>{openRecentTransaction(requested);const u=new URL(location.href);u.searchParams.delete('tx');history.replaceState(null,'',u.pathname+u.search+u.hash);});}}"""
-          if old not in s:
-              raise SystemExit('renderTransactions target not found')
-          s=s.replace(old,new)
-
-          s=s.replace('.tx-list{display:grid}.tx-row{display:grid;grid-template-columns:64px 1fr auto;gap:8px;align-items:center;padding:11px 0;border-top:1px solid var(--line2)}', '.tx-list{display:grid}.tx-row{display:grid;grid-template-columns:64px 1fr auto;gap:8px;align-items:center;padding:11px 0;border-top:1px solid var(--line2);color:inherit;text-decoration:none;cursor:pointer;touch-action:manipulation}')
-
-          refresh_css='''\n#pullRefreshIndicator{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:50%;transform:translate(-50%,-70px);z-index:20000;display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:999px;background:#10243a;border:1px solid #315d83;color:#dcecff;font-size:12px;font-weight:750;box-shadow:0 8px 28px rgba(0,0,0,.32);opacity:0;transition:transform .16s ease,opacity .16s ease;pointer-events:none}\n#pullRefreshIndicator.show{opacity:1}\n#pullRefreshIndicator.ready{background:#16446d}\n#pullRefreshSpinner{width:15px;height:15px;border:2px solid #6686a6;border-top-color:#dcecff;border-radius:50%;transform:rotate(0deg)}\n#pullRefreshIndicator.loading #pullRefreshSpinner{animation:pullSpin .7s linear infinite}\n@keyframes pullSpin{to{transform:rotate(360deg)}}\n'''
-          if '#pullRefreshIndicator{' not in s:
-              s=s.replace('</style>',refresh_css+'</style>')
-
-          indicator='''\n<div id="pullRefreshIndicator" aria-live="polite"><span id="pullRefreshSpinner"></span><span id="pullRefreshText">당겨서 새로고침</span></div>\n'''
-          if 'id="pullRefreshIndicator"' not in s:
-              s=s.replace('<body>', '<body>'+indicator,1)
-
-          pull_js='''\n(function(){\n  let startY=null, distance=0, tracking=false, refreshing=false;\n  const indicator=document.getElementById('pullRefreshIndicator');\n  const text=document.getElementById('pullRefreshText');\n  const spinner=document.getElementById('pullRefreshSpinner');\n  function reset(){\n    if(refreshing)return;\n    startY=null;distance=0;tracking=false;\n    indicator.classList.remove('show','ready');\n    indicator.style.transform='translate(-50%,-70px)';\n    spinner.style.transform='rotate(0deg)';\n    text.textContent='당겨서 새로고침';\n  }\n  document.addEventListener('touchstart',e=>{\n    if(refreshing)return;\n    if((window.scrollY||document.documentElement.scrollTop||0)<=0 && e.touches.length===1){\n      startY=e.touches[0].clientY;tracking=true;distance=0;\n    }\n  },{passive:true});\n  document.addEventListener('touchmove',e=>{\n    if(!tracking||startY===null||refreshing)return;\n    const y=e.touches[0].clientY;\n    distance=Math.max(0,y-startY);\n    if(distance<=0)return;\n    if(e.cancelable)e.preventDefault();\n    const shown=Math.min(92,distance*.62);\n    indicator.classList.add('show');\n    indicator.style.transform=`translate(-50%,${-54+shown}px)`;\n    spinner.style.transform=`rotate(${Math.min(300,distance*3)}deg)`;\n    if(distance>=82){indicator.classList.add('ready');text.textContent='놓으면 새로고침';}\n    else{indicator.classList.remove('ready');text.textContent='당겨서 새로고침';}\n  },{passive:false});\n  document.addEventListener('touchend',()=>{\n    if(!tracking||refreshing)return;\n    if(distance>=82){\n      refreshing=true;\n      indicator.classList.add('show','loading');\n      indicator.classList.remove('ready');\n      indicator.style.transform='translate(-50%,8px)';\n      text.textContent='새로고침 중…';\n      const u=new URL(location.href);\n      u.searchParams.delete('tx');\n      u.searchParams.set('refresh',Date.now());\n      setTimeout(()=>location.replace(u.toString()),180);\n    }else reset();\n  },{passive:true});\n  document.addEventListener('touchcancel',reset,{passive:true});\n})();\n'''
-          if '새로고침 중…' not in s:
-              s=s.replace('\n</script>\n</body>', pull_js+'\n</script>\n</body>')
-
+          marker='<script src="./finance-core.js?v=20260911-1100"></script>'
+          include='<script src="./rent-detail.js?v=20260914-1417"></script>'
+          if include not in s:
+              if marker not in s:
+                  raise SystemExit('finance-core script marker not found')
+              s=s.replace(marker, marker+'\n'+include, 1)
           p.write_text(s)
           PY
       - name: Commit patch
@@ -51,5 +36,5 @@ jobs:
           git config user.email "dashboard-fix-bot@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "Fix recent transaction links and pull refresh indicator"
+          git commit -m "Enable room-level Zaritalk rent details"
           git push
