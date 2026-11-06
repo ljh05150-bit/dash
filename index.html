@@ -415,8 +415,147 @@ async function logout(){if(PREVIEW_MODE)return;await sb.auth.signOut()}
 function show(on){auth.style.display=on?'none':'block';dash.style.display=on?'block':'none';if(on)load()}
 
 function getLiveStockMarketValue(rows){const usdkrw=Number(liveHistory.__USDKRW?.lastPrice||0);return rows.reduce((sum,x)=>{const lp=Number(liveHistory[x.ticker]?.lastPrice||0),qty=Number(x.quantity||0),krw=x.ticker==='005930';if(qty>0&&lp>0){if(krw)return sum+qty*lp;if(usdkrw>0)return sum+qty*lp*usdkrw}return sum+Number(x.market_value||0)},0)}
-function enrichStocks(rows){const usdkrw=Number(liveHistory.__USDKRW?.lastPrice||0);return rows.map(x=>{const live=liveHistory[x.ticker],lp=Number(live?.lastPrice||0),qty=Number(x.quantity||0),krw=x.ticker==='005930';let mv=Number(x.market_value||0);if(qty>0&&lp>0){if(krw)mv=qty*lp;else if(usdkrw>0)mv=qty*lp*usdkrw}let pp=x.pnl_pct==null?null:Number(x.pnl_pct),pnl=calcPnl(mv,pp);if(x.avg_price!=null&&Number(x.avg_price)>0&&qty>0&&lp>0){const avg=Number(x.avg_price);pp=((lp/avg)-1)*100;const cost=krw?qty*avg:(usdkrw>0?qty*avg*usdkrw:null);if(cost!=null)pnl=mv-cost}return {...x,_livePrice:lp,_liveMarketValue:mv,_livePnlPct:pp,_livePnl:pnl}}).sort((a,b)=>Number(b._liveMarketValue||0)-Number(a._liveMarketValue||0));}
-function renderStocks(rows){currentStockRows=rows;window.currentStockRows=rows;const enriched=enrichStocks(rows);const total=enriched.reduce((z,x)=>z+Number(x._liveMarketValue||0),0);let pnl=0;enriched.forEach(x=>{if(x._livePnl!=null)pnl+=Number(x._livePnl||0)});const pnlPct=total-pnl!==0?pnl/(total-pnl)*100:0;stockTotal.textContent=wonFull(total);stockPnlSummary.textContent=(pnl>=0?'+':'-')+wonFull(Math.abs(pnl))+' ('+(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%)';stockPnlSummary.className='stock-pnl '+(pnl>=0?'pos':'neg');stockList.innerHTML=enriched.map(x=>{const name=x.name||displayName(x.ticker),lp=Number(x._livePrice||0),krw=x.ticker==='005930';const shown=lp>0?(krw?'₩'+Math.round(lp).toLocaleString('ko-KR'):'$'+lp.toFixed(2)):(x.price||displayPrice(x.ticker));const itemPnl=x._livePnl,itemPct=x._livePnlPct,positive=Number(itemPct)>=0;const pnlText=itemPnl==null?'-':(itemPnl>=0?'+₩':'-₩')+Math.abs(Math.round(itemPnl)).toLocaleString('ko-KR');const pctText=itemPct==null?'':`(${Number(itemPct)>=0?'+':''}${Number(itemPct).toFixed(1)}%)`;return `<div class="stock-row" onclick="openStockEdit('${x.ticker}')"><div><div class="stock-name ${x.ticker==='TQQQ'?'compact':''}">${name}</div><div class="stock-price">${shown} <span class="good">${lp>0?'LIVE':'SNAP'}</span></div><div class="stock-ticker">${x.ticker}</div></div><div class="spark">${sparkSVG(x.ticker,positive)}</div><div class="stock-right"><div class="stock-market">${wonFull(x._liveMarketValue)}</div><div class="stock-item-pnl ${positive?'pos':'neg'}">${pnlText}<br>${pctText}</div></div><div class="chev">›</div></div>`}).join('');const fx=Number(liveHistory.__USDKRW?.lastPrice||0);stockUpdated.textContent='최근 6개월 일봉 · 시세·환율 1분 자동갱신'+(fx>0?' · USD/KRW '+fx.toFixed(2):' · 환율 확인 불가')+' · '+(window.__marketLastSuccess?new Date(window.__marketLastSuccess).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'최근 저장값')+' 기준';return total;}
+function enrichStocks(rows){
+  const fx=Number(liveHistory.__USDKRW?.lastPrice);
+  const validFx=Number.isFinite(fx)&&fx>0;
+  return rows.map(x=>{
+    const qty=Number(x.quantity),avg=Number(x.avg_price),price=Number(liveHistory[x.ticker]?.lastPrice);
+    const domestic=x.ticker==='005930';
+    const quoted=Number.isFinite(qty)&&qty>=0&&Number.isFinite(price)&&price>0&&(domestic||validFx);
+    const fallback=Number(x.market_value);
+    const market=quoted?qty*price*(domestic?1:fx):(Number.isFinite(fallback)&&fallback>=0?fallback:0);
+    const krwCost=x.cost_basis_krw==null?NaN:Number(x.cost_basis_krw);
+    let cost=NaN,basis='unavailable';
+    if(qty>0&&Number.isFinite(krwCost)&&krwCost>0){cost=krwCost;basis='krw';}
+    else if(qty>0&&quoted&&Number.isFinite(avg)&&avg>0){
+      cost=qty*avg*(domestic?1:fx);
+      basis=domestic?'krw-average':'usd-estimate';
+    }else if(qty>0&&!quoted&&Number.isFinite(fallback)&&fallback>0){
+      const pct=x.pnl_pct==null?NaN:Number(x.pnl_pct);
+      if(Number.isFinite(pct)&&pct>-100){cost=fallback/(1+pct/100);basis='stored';}
+    }
+    const validCost=Number.isFinite(cost)&&cost>0;
+    const pnl=validCost?market-cost:null,pct=validCost?(market-cost)/cost*100:null;
+    return {...x,_livePrice:quoted?price:0,_isLive:quoted,_liveMarketValue:market,
+      _livePnlPct:pct,_livePnl:pnl,_costKrw:cost,_pnlBasis:basis};
+  }).sort((a,b)=>Number(b._liveMarketValue||0)-Number(a._liveMarketValue||0));
+}
+function renderStocks(rows){
+  currentStockRows=rows;window.currentStockRows=rows;
+  const stocks=enrichStocks(rows),total=stocks.reduce((s,x)=>s+Number(x._liveMarketValue||0),0);
+  const accounted=stocks.filter(x=>x._livePnl!=null),missing=stocks.some(x=>Number(x.quantity)>0&&x._livePnl==null);
+  const pnl=accounted.reduce((s,x)=>s+Number(x._livePnl),0);
+  const basis=accounted.reduce((s,x)=>s+Number(x._costKrw),0);
+  const approximate=stocks.some(x=>['usd-estimate','stored'].includes(x._pnlBasis));
+  const pct=basis>0?pnl/basis*100:null;
+  stockTotal.textContent=wonFull(total);
+  stockPnlSummary.textContent=missing||pct==null?'일부 종목 매입원금 확인 필요':
+    (pnl>=0?'+':'-')+wonFull(Math.abs(pnl))+' ('+(pct>=0?'+':'')+pct.toFixed(2)+'%)'+(approximate?' · 추정':'');
+  stockPnlSummary.className='stock-pnl '+(pnl>=0?'pos':'neg');
+  stockList.innerHTML=stocks.map(x=>{
+    const name=x.name||displayName(x.ticker),price=x._livePrice,krw=x.ticker==='005930';
+    const shown=price>0?(krw?'₩'+Math.round(price).toLocaleString('ko-KR'):'
+
+function renderRent(rents){rentMonthLabel.textContent=monthLabel(new Date())+' 기준';rentGrid.innerHTML=rents.map(r=>{const pct=r.charge>0?Math.max(0,Math.min(100,r.paid/r.charge*100)):0;const unpaid=r.live?Math.max(r.charge-r.paid,0):null;return `<div class="rent-card"><div class="rent-top"><div><div class="rent-name">${r.name}</div><div class="rent-info">낙찰가 ${won(r.value)} · 대출 ${won(r.loan)} · 지분 ${won(r.value-r.loan)}</div></div><span class="pill"><span class="dot" style="background:${r.live?'var(--green)':'var(--orange)'}"></span>${r.status}</span></div><div class="rent-label-row"><span class="rent-label">${monthLabel(new Date())} 수납</span><span class="rent-amount num">${r.live?won(r.paid):'미확인'} / ${won(r.charge)}</span></div><div class="progress"><div class="progress-fill" style="width:${pct}%"></div><div class="progress-pct">${r.live?pct.toFixed(0)+'%':'미확인'}</div></div><div class="rent-foot">${r.live?'수납률 '+pct.toFixed(1)+'% · 미수납 '+won(unpaid):r.status+' · 수납액 집계 제외'} · 보증금 ${won(r.deposit)}${r.roomCount?` · ${r.roomCount}실`:''}</div></div>`}).join('');}
+
+function renderCategories(tx){const thism=ym(new Date());const map={};let total=0;tx.forEach(t=>{if(ym(new Date(t.occurred_at))!==thism)return;const a=Number(t.amount);if(a>=0)return;const cat=t.category||'미분류';map[cat]=(map[cat]||0)+Math.abs(a);total+=Math.abs(a)});let items=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);if(!items.length)items=[['미분류',1]];const colors=['#8c6cff','#ff5b65','#4b9dff','#ffb33c','#52d1c7'];let acc=0;const seg=items.map(([k,v],i)=>{const pct=total>0?v/total*100:(i===0?100:0);const st=acc;acc+=pct;return `${colors[i]} ${st}% ${acc}%`});expenseDonut.style.background=`conic-gradient(${seg.join(',')})`;categoryList.innerHTML=items.map(([k,v],i)=>{const pct=total>0?v/total*100:(i===0?100:0);return `<div class="cat-row"><span class="cat-dot" style="background:${colors[i]}"></span><span>${k}</span><span class="cat-val">${pct.toFixed(0)}%</span></div>`}).join('');}
+function renderTransactions(tx){const visible=tx.slice(0,5);window.__visibleRecentTransactions=visible;txrows.innerHTML=visible.map(t=>{const a=Number(t.amount||0);const id=t.id==null?'':encodeURIComponent(String(t.id));const href=id?`./index.html?tx=${id}#transactionsSection`:'#transactionsSection';return `<a class="tx-row" href="${href}"><div class="tx-time">${new Date(t.occurred_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class="tx-main"><div class="tx-merchant">${t.merchant||t.category||'거래'}</div><div class="tx-account">${t.account||t.source||''} · ${t.category||'미분류'}</div></div><div class="tx-amt ${a>=0?'pos':'neg'}">${a>=0?'+':'-'}${wonFull(Math.abs(a))}</div></a>`}).join('')||'<div class="subtitle">아직 거래내역이 없습니다.</div>';const requested=new URLSearchParams(location.search).get('tx');if(requested){requestAnimationFrame(()=>{openRecentTransaction(requested);const u=new URL(location.href);u.searchParams.delete('tx');history.replaceState(null,'',u.pathname+u.search+u.hash);});}}
+function renderTrend(snaps,currentNetWorth){const arr=NetWorth.monthlySnapshots(snaps).filter(r=>r.value!==null).slice(-12);if(!arr.length)arr.push({key:ym(new Date()),year:new Date().getFullYear(),month:new Date().getMonth()+1,value:currentNetWorth});trendWrap.innerHTML=NetWorth.dashboardChart(arr);trendCurrent.textContent='현재 '+won(currentNetWorth);if(arr.length>=2){const {rate}=NetWorth.change(arr[arr.length-1],arr[0]);trendBadge.textContent='최근 '+arr.length+'개월'+(rate===null?' · 증감률 계산 불가':' '+(rate>=0?'+':'')+rate.toFixed(1)+'%')}else trendBadge.textContent='월말 자동 저장';}
+function inspectTrend(event){const target=event.target.closest('[data-trend-label]');if(!target)return;document.getElementById('trendReadout').textContent=target.dataset.trendLabel;trendWrap.querySelectorAll('[data-trend-label]').forEach(button=>button.setAttribute('aria-pressed',String(button===target)));}
+['click','pointerover','focusin'].forEach(type=>trendWrap.addEventListener(type,inspectTrend));
+
+async function saveMonthlySnapshot(netWorth,totalAssets,totalDebt){try{const d=new Date();const snapshot_date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;const {error}=await sb.from('net_worth_snapshots').upsert({snapshot_date,source:'automatic',net_worth:Math.round(netWorth),total_assets:Math.round(totalAssets),total_debt:Math.round(totalDebt)},{onConflict:'household_id,snapshot_date'});if(error)throw error}catch(e){console.warn('snapshot',e)}}
+
+async function load(){
+  if(PREVIEW_MODE){renderPreview();return}
+  try{
+    const now=new Date();const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1);const prevYM=ym(prevDate);
+    const histP=loadStockHistory(),zP=loadZaritalk(),zPrevP=loadZaritalk(prevYM);
+    const [tx,a,s,snaps]=await Promise.all([q('transactions','occurred_at'),q('assets','updated_at'),q('securities','updated_at'),q('net_worth_snapshots','snapshot_date',true)]);
+    await histP;const z=await zP;const zPrev=await zPrevP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a,stockValue);
+    nw.textContent=won(netWorth);availableNw.textContent=won(available);loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);propertyEquity.textContent=won(PROPERTY_EQUITY);tenantDepositDebt.textContent='-'+won(tenantDeposits);
+    const {income,expense}=monthlyCashFlow(tx,ym(now),z);const previous=monthlyCashFlow(tx,prevYM,zPrev);const prevRent=normalizeRent(zPrev)[0];
+    const spendMeta=document.querySelector('#transactionsSection .section-meta');if(spendMeta)spendMeta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
+    prevCfLabel.textContent='지난달 순현금흐름';prevMonthCF.textContent=won(previous.net);prevMonthCF.className='summary-value num '+(previous.net>=0?'good':'neg');prevMonthCFSub.textContent=monthLabel(prevDate)+' · 수입 '+won(previous.income)+' · 지출 '+won(previous.expense)+(prevRent.live?'':' · '+prevRent.status+' (수납 제외)');
+    monthIncomeNote.textContent=rents[0].live?'월세 실제 수납 포함':rents[0].status+' · 수납 제외';document.querySelector('#monthlySection h2').textContent=monthLabel(now)+' 월별 결산';
+    monthTitle.textContent=monthLabel(now)+' 월별 결산';monthMeta.textContent=now.getFullYear()+'년 '+monthLabel(now);monthIncome.textContent=won(income);monthExpense.textContent=won(expense);monthCF.textContent=won(income-expense);monthCF.className='v num '+(income-expense>=0?'good':'neg');renderCategories(tx);renderTransactions(tx);await saveMonthlySnapshot(netWorth,totalAssets,totalDebt);const snaps2=await q('net_worth_snapshots','snapshot_date',true);renderTrend(snaps2,netWorth);updated.textContent='업데이트 '+new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }catch(e){updated.textContent='데이터 오류: '+e.message;console.error(e)}
+}
+
+function openStockEdit(ticker){const row=currentStockRows.find(x=>x.ticker===ticker);if(!row)return;editingTicker=ticker;editTitle.textContent=(row.name||displayName(ticker))+' 수정';editTicker.textContent=ticker;editQty.value=Number(row.quantity||0);editAvg.value=row.avg_price==null?'':Number(row.avg_price);editMarketValue.value=Number(row.market_value||0);editPnlPct.value=row.pnl_pct==null?'':Number(row.pnl_pct);stockEditModal.classList.add('show')}
+function closeStockEdit(){stockEditModal.classList.remove('show');editingTicker=null}
+async function saveStockEdit(){if(!editingTicker)return;const {error}=await sb.from('securities').upsert({ticker:editingTicker,quantity:Number(editQty.value||0),avg_price:editAvg.value===''?null:Number(editAvg.value),market_value:Math.round(Number(editMarketValue.value||0)),pnl_pct:editPnlPct.value===''?null:Number(editPnlPct.value),updated_at:new Date().toISOString()},{onConflict:'user_id,ticker'});if(error){alert('저장 오류: '+error.message);return}closeStockEdit();await load()}
+async function seedStocks(){if(PREVIEW_MODE)return;seedBtn.disabled=true;try{const rows=INITIAL_STOCKS.map(x=>({ticker:x.ticker,quantity:x.quantity,avg_price:x.avg_price,market_value:x.market_value,pnl_pct:x.pnl_pct}));const r=await sb.from('securities').upsert(rows,{onConflict:'user_id,ticker'});if(r.error)throw r.error;seedBtn.textContent='저장 완료 ✓';await load()}catch(e){seedBtn.textContent='저장 실패';alert(e.message)}finally{setTimeout(()=>{seedBtn.disabled=false;seedBtn.textContent='포트폴리오 저장'},2200)}}
+
+function renderPreview(){auth.style.display='none';dash.style.display='block';updated.textContent='미리보기 · 실제 index는 Supabase 자동연동';liveHistory={};const stockValue=renderStocks(INITIAL_STOCKS);const rents=normalizeRent(null);renderRent(rents);const previewAccounts=[{name:'토스뱅크',value:1100219}];const accountTotal=previewAccounts.reduce((s,x)=>s+assetValue(x),0),tenant=93400000,totalLoans=STATIC_LOANS,totalAssets=accountTotal+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit,totalDebt=totalLoans+tenant,net=totalAssets-totalDebt;const available=renderAvailableAssets(previewAccounts,stockValue);nw.textContent=won(net);availableNw.textContent=won(available);prevCfLabel.textContent='지난달 순현금흐름';prevMonthCF.textContent='+620만';prevMonthCF.className='summary-value num good';prevMonthCFSub.textContent='수입 1,120만 · 지출 500만';loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);tenantDepositDebt.textContent='-'+won(tenant);propertyEquity.textContent=won(PROPERTY_EQUITY);monthTitle.textContent='9월 월별 결산';monthMeta.textContent='2026년 9월';monthIncome.textContent='1,307만';monthExpense.textContent='435만';monthCF.textContent='+872만';const fakeTx=[{occurred_at:'2026-09-05T10:00:00',amount:-135000,category:'식비',merchant:'이마트',account:'토스 부부생활비'},{occurred_at:'2026-09-04T19:00:00',amount:-78000,category:'쇼핑',merchant:'쿠팡',account:'토스 부부생활비'},{occurred_at:'2026-09-03T12:00:00',amount:-62000,category:'육아',merchant:'키즈샵',account:'롯데카드'},{occurred_at:'2026-09-02T09:00:00',amount:-47000,category:'교통',merchant:'주유',account:'현대카드'},{occurred_at:'2026-09-01T18:00:00',amount:-113000,category:'기타',merchant:'생활비',account:'K뱅크 체크카드'}];renderCategories(fakeTx);renderTransactions(fakeTx);const snaps=[];const vals=[480000000,495000000,510000000,525000000,535000000,555000000,570000000,585000000,600000000,612000000,626000000,net];for(let i=0;i<12;i++){const d=new Date(2025,9+i,1);snaps.push({snapshot_date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`,net_worth:vals[i]})}renderTrend(snaps,net);}
+
+if(PREVIEW_MODE){renderPreview()}else{sb.auth.onAuthStateChange((_e,s)=>show(!!s));sb.auth.getSession().then(r=>show(!!r.data.session));setInterval(()=>{if(dash.style.display!=='none'&&!document.hidden&&!window.__marketRefreshing){window.__marketRefreshing=true;Promise.resolve(load()).finally(()=>{window.__marketRefreshing=false})}},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&dash.style.display!=='none'&&!window.__marketRefreshing){window.__marketRefreshing=true;Promise.resolve(load()).finally(()=>{window.__marketRefreshing=false})}})}
+
+function bindAvailableAssetsInteraction(){const card=document.getElementById('availableCard');if(card){card.addEventListener('click',openAvailableAssets);card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openAvailableAssets();}});}}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bindAvailableAssetsInteraction,{once:true});}else{bindAvailableAssetsInteraction();}
+
+(function(){
+  let startY=null, distance=0, tracking=false, refreshing=false;
+  const indicator=document.getElementById('pullRefreshIndicator');
+  const text=document.getElementById('pullRefreshText');
+  const spinner=document.getElementById('pullRefreshSpinner');
+  function reset(){
+    if(refreshing)return;
+    startY=null;distance=0;tracking=false;
+    indicator.classList.remove('show','ready');
+    indicator.style.transform='translate(-50%,-70px)';
+    spinner.style.transform='rotate(0deg)';
+    text.textContent='당겨서 새로고침';
+  }
+  document.addEventListener('touchstart',e=>{
+    if(refreshing)return;
+    if((window.scrollY||document.documentElement.scrollTop||0)<=0 && e.touches.length===1){
+      startY=e.touches[0].clientY;tracking=true;distance=0;
+    }
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!tracking||startY===null||refreshing)return;
+    const y=e.touches[0].clientY;
+    distance=Math.max(0,y-startY);
+    if(distance<=0)return;
+    if(e.cancelable)e.preventDefault();
+    const shown=Math.min(92,distance*.62);
+    indicator.classList.add('show');
+    indicator.style.transform=`translate(-50%,${-54+shown}px)`;
+    spinner.style.transform=`rotate(${Math.min(300,distance*3)}deg)`;
+    if(distance>=82){indicator.classList.add('ready');text.textContent='놓으면 새로고침';}
+    else{indicator.classList.remove('ready');text.textContent='당겨서 새로고침';}
+  },{passive:false});
+  document.addEventListener('touchend',()=>{
+    if(!tracking||refreshing)return;
+    if(distance>=82){
+      refreshing=true;
+      indicator.classList.add('show','loading');
+      indicator.classList.remove('ready');
+      indicator.style.transform='translate(-50%,8px)';
+      text.textContent='새로고침 중…';
+      const u=new URL(location.href);
+      u.searchParams.delete('tx');
+      u.searchParams.set('refresh',Date.now());
+      setTimeout(()=>location.replace(u.toString()),180);
+    }else reset();
+  },{passive:true});
+  document.addEventListener('touchcancel',reset,{passive:true});
+})();
+
+</script>
+</body>
+</html>+price.toFixed(2)):(x.price||displayPrice(x.ticker));
+    const pnl=x._livePnl,pct=x._livePnlPct,positive=pct!=null&&pct>=0;
+    const pnlText=pnl==null?'-':(pnl>=0?'+₩':'-₩')+Math.abs(Math.round(pnl)).toLocaleString('ko-KR');
+    const note=x._pnlBasis==='usd-estimate'?' · USD기준 추정':x._pnlBasis==='stored'?' · 저장값':'';
+    const pctText=pct==null?'':`(${pct>=0?'+':''}${pct.toFixed(1)}%${note})`;
+    return `<div class="stock-row" onclick="openStockEdit('${x.ticker}')"><div><div class="stock-name ${x.ticker==='TQQQ'?'compact':''}">${name}</div><div class="stock-price">${shown} <span class="good">${x._isLive?'LIVE':'SNAP'}</span></div><div class="stock-ticker">${x.ticker}</div></div><div class="spark">${sparkSVG(x.ticker,positive)}</div><div class="stock-right"><div class="stock-market">${wonFull(x._liveMarketValue)}</div><div class="stock-item-pnl ${positive?'pos':'neg'}">${pnlText}<br>${pctText}</div></div><div class="chev">›</div></div>`;
+  }).join('');
+  const fx=Number(liveHistory.__USDKRW?.lastPrice||0);
+  stockUpdated.textContent='최근 6개월 일봉 · 시세·환율 1분 자동갱신'+(fx>0?' · USD/KRW '+fx.toFixed(2):' · 환율 확인 불가')+' · '+(window.__marketLastSuccess?new Date(window.__marketLastSuccess).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'최근 저장값')+' 기준'+(approximate?' · 일부 수익률 원화 추정':'');
+  return total;
+}
 
 function renderRent(rents){rentMonthLabel.textContent=monthLabel(new Date())+' 기준';rentGrid.innerHTML=rents.map(r=>{const pct=r.charge>0?Math.max(0,Math.min(100,r.paid/r.charge*100)):0;const unpaid=r.live?Math.max(r.charge-r.paid,0):null;return `<div class="rent-card"><div class="rent-top"><div><div class="rent-name">${r.name}</div><div class="rent-info">낙찰가 ${won(r.value)} · 대출 ${won(r.loan)} · 지분 ${won(r.value-r.loan)}</div></div><span class="pill"><span class="dot" style="background:${r.live?'var(--green)':'var(--orange)'}"></span>${r.status}</span></div><div class="rent-label-row"><span class="rent-label">${monthLabel(new Date())} 수납</span><span class="rent-amount num">${r.live?won(r.paid):'미확인'} / ${won(r.charge)}</span></div><div class="progress"><div class="progress-fill" style="width:${pct}%"></div><div class="progress-pct">${r.live?pct.toFixed(0)+'%':'미확인'}</div></div><div class="rent-foot">${r.live?'수납률 '+pct.toFixed(1)+'% · 미수납 '+won(unpaid):r.status+' · 수납액 집계 제외'} · 보증금 ${won(r.deposit)}${r.roomCount?` · ${r.roomCount}실`:''}</div></div>`}).join('');}
 
