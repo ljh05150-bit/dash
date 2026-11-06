@@ -125,7 +125,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 /* transactions */
 .tx-list{display:grid}.tx-row{display:grid;grid-template-columns:64px 1fr auto;gap:8px;align-items:center;padding:11px 0;border-top:1px solid var(--line2);cursor:pointer;touch-action:manipulation}.tx-row:first-child{border-top:0}.tx-time{font-size:9px;color:#748aa1}.tx-main{min-width:0}.tx-merchant{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tx-account{font-size:9px;color:#71869d;margin-top:2px}.tx-amt{font-size:11px;font-weight:800;text-align:right}
 
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.74);display:none;align-items:flex-end;justify-content:center;z-index:99;padding:12px}.modal-backdrop.show{display:flex}.modal{width:min(520px,100%);max-height:88vh;overflow:auto;background:#0d1a2b;border:1px solid var(--line);border-radius:22px;padding:17px}.modal h3{margin:0 0 4px}.modal label{display:block;font-size:10px;color:var(--muted);margin-top:9px}.modal input{width:100%;background:#081525;border:1px solid var(--line);border-radius:12px;padding:11px;color:white;margin-top:5px}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.74);display:none;align-items:flex-end;justify-content:center;z-index:99;padding:12px}.modal-backdrop.show{display:flex}.modal{width:min(520px,100%);max-height:88vh;overflow:auto;background:#0d1a2b;border:1px solid var(--line);border-radius:22px;padding:17px}.modal h3{margin:0 0 4px}.modal label{display:block;font-size:10px;color:var(--muted);margin-top:9px}.modal input{width:100%;background:#081525;border:1px solid var(--line);border-radius:12px;padding:11px;color:white;margin-top:5px}.modal input[readonly]{background:#14243a;color:#a8c2dd;cursor:default}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 
 @media(min-width:720px){.summary-grid{grid-template-columns:repeat(4,1fr)}.rent-grid{grid-template-columns:1fr 1fr}.stock-row{grid-template-columns:1.15fr 145px 1fr 16px}.spark svg{width:135px}.month-bottom{grid-template-columns:150px 1fr}.donut-wrap,.donut{width:145px;height:145px}}
 @media(max-width:370px){.month-bottom{grid-template-columns:112px 1fr}.donut-wrap,.donut{width:110px;height:110px}.donut:after{inset:22px}.stock-row{grid-template-columns:minmax(0,1fr) 76px minmax(102px,.9fr) 12px}.spark svg{width:74px}}
@@ -242,10 +242,12 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 <div id="stockEditModal" class="modal-backdrop" onclick="if(event.target===this)closeStockEdit()">
   <div class="modal">
     <h3 id="editTitle">종목 수정</h3><div class="subtitle" id="editTicker"></div>
-    <label>보유 수량</label><input id="editQty" type="number" step="any">
-    <label>평균단가</label><input id="editAvg" type="number" step="any">
-    <label>현재 평가액(원)</label><input id="editMarketValue" type="number" step="1">
-    <label>현재 수익률(%)</label><input id="editPnlPct" type="number" step="0.01">
+    <label>보유 수량</label><input id="editQty" type="number" min="0" step="any">
+    <label>평균단가 (해외 USD / 국내 KRW)</label><input id="editAvg" type="number" min="0" step="any">
+    <label>실제 원화 매입원금 합계 (원 · 선택)</label><input id="editCostBasis" type="number" min="0" step="1" placeholder="매매내역에서 확인한 원화 매입원금">
+    <label>현재 평가액(원) · 자동계산</label><input id="editMarketValue" type="text" readonly aria-readonly="true">
+    <label>현재 수익률(%) · 자동계산</label><input id="editPnlPct" type="text" readonly aria-readonly="true">
+    <div class="subtitle" id="editValuationNote" style="font-size:11px;line-height:1.6;margin-top:9px">실제 원화 매입원금이 없으면 달러 평단가 기준 추정치를 표시합니다.</div>
     <div class="modal-actions"><button class="btn" onclick="closeStockEdit()">취소</button><button class="btn" onclick="saveStockEdit()">저장</button></div>
   </div>
 </div>
@@ -492,9 +494,60 @@ async function load(){
   }catch(e){updated.textContent='데이터 오류: '+e.message;console.error(e)}
 }
 
-function openStockEdit(ticker){const row=currentStockRows.find(x=>x.ticker===ticker);if(!row)return;editingTicker=ticker;editTitle.textContent=(row.name||displayName(ticker))+' 수정';editTicker.textContent=ticker;editQty.value=Number(row.quantity||0);editAvg.value=row.avg_price==null?'':Number(row.avg_price);editMarketValue.value=Number(row.market_value||0);editPnlPct.value=row.pnl_pct==null?'':Number(row.pnl_pct);stockEditModal.classList.add('show')}
+function stockEditPreview(){
+  const row=currentStockRows.find(x=>x.ticker===editingTicker);
+  if(!row)return null;
+  const quantity=Number(editQty.value),avg=editAvg.value===''?null:Number(editAvg.value);
+  const cost=editCostBasis.value===''?null:Number(editCostBasis.value);
+  const result=enrichStocks([{...row,quantity,avg_price:avg,cost_basis_krw:cost}])[0];
+  editMarketValue.value=result._isLive
+    ?Math.round(result._liveMarketValue).toLocaleString('ko-KR')
+    :Math.round(Number(row.market_value)||0).toLocaleString('ko-KR')+' (저장값)';
+  editPnlPct.value=result._livePnlPct==null?'계산 불가':
+    (result._livePnlPct>=0?'+':'')+result._livePnlPct.toFixed(2);
+  const status=result._pnlBasis==='krw'?'실제 원화 매입원금 기준 (환율손익 포함)'
+    :result._pnlBasis==='usd-estimate'?'매수 당시 환율 미확인 · USD 기준 수익률, 원화 손익 추정'
+    :result._pnlBasis==='stored'?'최신 시세/환율 미수신 · 저장된 과거 평가 기준'
+    :'수익률 계산에 필요한 매입원금과 시세가 부족합니다.';
+  editValuationNote.textContent=status+(result._isLive?' · 최신 시세 적용':' · 실시간 평가액 확인 불가');
+  return result;
+}
+function openStockEdit(ticker){
+  const row=currentStockRows.find(x=>x.ticker===ticker);if(!row)return;
+  editingTicker=ticker;editTitle.textContent=(row.name||displayName(ticker))+' 수정';
+  editTicker.textContent=ticker;editQty.value=Number(row.quantity||0);
+  editAvg.value=row.avg_price==null?'':Number(row.avg_price);
+  editCostBasis.value=row.cost_basis_krw==null?'':Number(row.cost_basis_krw);
+  stockEditPreview();stockEditModal.classList.add('show');
+}
 function closeStockEdit(){stockEditModal.classList.remove('show');editingTicker=null}
-async function saveStockEdit(){if(!editingTicker)return;const {error}=await sb.from('securities').upsert({ticker:editingTicker,quantity:Number(editQty.value||0),avg_price:editAvg.value===''?null:Number(editAvg.value),market_value:Math.round(Number(editMarketValue.value||0)),pnl_pct:editPnlPct.value===''?null:Number(editPnlPct.value),updated_at:new Date().toISOString()},{onConflict:'user_id,ticker'});if(error){alert('저장 오류: '+error.message);return}closeStockEdit();await load()}
+[editQty,editAvg,editCostBasis].forEach(input=>input.addEventListener('input',()=>{if(editingTicker)stockEditPreview()}));
+async function saveStockEdit(){
+  if(!editingTicker||PREVIEW_MODE)return;
+  const row=currentStockRows.find(x=>x.ticker===editingTicker);
+  if(!row?.id){alert('저장할 종목을 찾지 못했습니다. 새로고침 후 다시 시도해 주세요.');return}
+  const quantity=Number(editQty.value),avg=editAvg.value===''?null:Number(editAvg.value);
+  const cost=editCostBasis.value===''?null:Number(editCostBasis.value);
+  if(!Number.isFinite(quantity)||quantity<0||(quantity>0&&!(avg!=null&&Number.isFinite(avg)&&avg>0))){
+    alert('보유 수량과 평균단가를 올바르게 입력해 주세요.');return;
+  }
+  if(cost!=null&&(!Number.isSafeInteger(cost)||cost<=0)){
+    alert('원화 매입원금은 0보다 큰 정수로 입력하거나 비워 두세요.');return;
+  }
+  if(quantity!==Number(row.quantity)&&Number(row.cost_basis_krw)>0&&cost===Number(row.cost_basis_krw)){
+    alert('수량이 변경되었으므로 실제 원화 매입원금 합계도 함께 수정해 주세요.');return;
+  }
+  const result=stockEditPreview(),payload={
+    quantity,avg_price:avg,cost_basis_krw:cost,updated_at:new Date().toISOString()
+  };
+  if(result?._isLive){
+    payload.market_value=Math.round(result._liveMarketValue);
+    payload.pnl_pct=result._livePnlPct;
+  }
+  const {data,error}=await sb.from('securities').update(payload).eq('id',row.id).select('id').single();
+  if(error||!data){alert('저장 오류: '+(error?.message||'변경된 행을 확인할 수 없습니다.'));return}
+  closeStockEdit();await load();
+}
 async function seedStocks(){if(PREVIEW_MODE)return;seedBtn.disabled=true;try{const rows=INITIAL_STOCKS.map(x=>({ticker:x.ticker,quantity:x.quantity,avg_price:x.avg_price,market_value:x.market_value,pnl_pct:x.pnl_pct}));const r=await sb.from('securities').upsert(rows,{onConflict:'user_id,ticker'});if(r.error)throw r.error;seedBtn.textContent='저장 완료 ✓';await load()}catch(e){seedBtn.textContent='저장 실패';alert(e.message)}finally{setTimeout(()=>{seedBtn.disabled=false;seedBtn.textContent='포트폴리오 저장'},2200)}}
 
 function renderPreview(){auth.style.display='none';dash.style.display='block';updated.textContent='미리보기 · 실제 index는 Supabase 자동연동';liveHistory={};const stockValue=renderStocks(INITIAL_STOCKS);const rents=normalizeRent(null);renderRent(rents);const previewAccounts=[{name:'토스뱅크',value:1100219}];const accountTotal=previewAccounts.reduce((s,x)=>s+assetValue(x),0),tenant=93400000,totalLoans=STATIC_LOANS,totalAssets=accountTotal+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit,totalDebt=totalLoans+tenant,net=totalAssets-totalDebt;const available=renderAvailableAssets(previewAccounts,stockValue);nw.textContent=won(net);availableNw.textContent=won(available);prevCfLabel.textContent='지난달 순현금흐름';prevMonthCF.textContent='+620만';prevMonthCF.className='summary-value num good';prevMonthCFSub.textContent='수입 1,120만 · 지출 500만';loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);tenantDepositDebt.textContent='-'+won(tenant);propertyEquity.textContent=won(PROPERTY_EQUITY);monthTitle.textContent='9월 월별 결산';monthMeta.textContent='2026년 9월';monthIncome.textContent='1,307만';monthExpense.textContent='435만';monthCF.textContent='+872만';const fakeTx=[{occurred_at:'2026-09-05T10:00:00',amount:-135000,category:'식비',merchant:'이마트',account:'토스 부부생활비'},{occurred_at:'2026-09-04T19:00:00',amount:-78000,category:'쇼핑',merchant:'쿠팡',account:'토스 부부생활비'},{occurred_at:'2026-09-03T12:00:00',amount:-62000,category:'육아',merchant:'키즈샵',account:'롯데카드'},{occurred_at:'2026-09-02T09:00:00',amount:-47000,category:'교통',merchant:'주유',account:'현대카드'},{occurred_at:'2026-09-01T18:00:00',amount:-113000,category:'기타',merchant:'생활비',account:'K뱅크 체크카드'}];renderCategories(fakeTx);renderTransactions(fakeTx);const snaps=[];const vals=[480000000,495000000,510000000,525000000,535000000,555000000,570000000,585000000,600000000,612000000,626000000,net];for(let i=0;i<12;i++){const d=new Date(2025,9+i,1);snaps.push({snapshot_date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`,net_worth:vals[i]})}renderTrend(snaps,net);}
