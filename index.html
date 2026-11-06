@@ -465,6 +465,7 @@ function renderStocks(rows){
   }).join('');
   const fx=Number(liveHistory.__USDKRW?.lastPrice||0);
   stockUpdated.textContent='최근 6개월 일봉 · 시세·환율 1분 자동갱신'+(fx>0?' · USD/KRW '+fx.toFixed(2):' · 환율 확인 불가')+' · '+(window.__marketLastSuccess?new Date(window.__marketLastSuccess).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'최근 저장값')+' 기준'+(approximate?' · 일부 수익률 원화 추정':'');
+  if(editingTicker&&stockEditModal.classList.contains('show'))stockEditPreview();
   return total;
 }
 
