@@ -137,6 +137,23 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 #pullRefreshSpinner{width:15px;height:15px;border:2px solid #6686a6;border-top-color:#dcecff;border-radius:50%;transform:rotate(0deg)}
 #pullRefreshIndicator.loading #pullRefreshSpinner{animation:pullSpin .7s linear infinite}
 @keyframes pullSpin{to{transform:rotate(360deg)}}
+
+/* Mobile stock layout and manual refresh status. */
+.stock-detail{min-width:0}
+.stock-name,.stock-name.compact{font-size:14px;line-height:1.4;word-break:keep-all;overflow-wrap:break-word}
+.stock-owner{font-size:10px;color:#93a9be;line-height:1.5;margin-top:3px;word-break:keep-all;overflow-wrap:break-word}
+.stock-foot{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;margin-top:12px}
+.stock-foot #stockUpdated{min-width:0;line-height:1.6;word-break:keep-all;overflow-wrap:break-word;font-size:10px}
+.stock-foot #stockRefreshButton{min-width:92px;white-space:nowrap;border:1px solid #315d83;border-radius:10px;background:#10243a;color:#d0e5ff;padding:10px;font-size:11px;font-weight:750;cursor:pointer}
+.stock-foot #stockRefreshButton:disabled{opacity:.7;cursor:wait}
+@media(max-width:719px){
+ .stock-row,.stock-row:first-child{grid-template-columns:minmax(0,1fr) minmax(125px,auto);grid-template-areas:"detail value" "spark value";column-gap:10px;row-gap:2px;align-items:start;padding:13px 0;min-height:112px}
+ .stock-row>.stock-detail{grid-area:detail}
+ .stock-row>.spark{grid-area:spark;align-self:end;margin-top:5px}
+ .stock-row>.stock-right{grid-area:value;align-self:center}
+ .stock-row>.chev{display:none}
+ .stock-row .stock-price{margin-top:6px}
+}
 </style>
 </head>
 <body>
@@ -197,7 +214,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
     <div class="card stock-widget">
       <div class="stock-head"><div><div class="stock-total num" id="stockTotal">₩0</div><div class="stock-pnl" id="stockPnlSummary">₩0 (0.00%)</div></div><button id="seedBtn" class="btn small" onclick="seedStocks()">포트폴리오 저장</button></div>
       <div class="stock-list" id="stockList"></div>
-      <div class="stock-foot"><span id="stockUpdated">최근 6개월 일봉 · 현재가 자동</span><button onclick="load()">새로고침</button></div>
+      <div class="stock-foot"><span id="stockUpdated" aria-live="polite">최근 6개월 일봉 · 현재가 자동</span><button id="stockRefreshButton" type="button" onclick="refreshDashboard()" aria-label="주식 시세 및 대시보드 데이터 새로고침">새로고침</button></div>
     </div>
 
     <div class="section-title" id="rentSection"><h2>부동산 월세 현황</h2><span class="section-meta" id="rentMonthLabel">-</span></div>
@@ -339,7 +356,7 @@ function stockChartCloses(ticker){
 
 function sparkSVG(ticker,positive){const history=stockChartCloses(ticker);const arr=(history&&history.length>2)?history:(SPARKS[ticker]||[30,36,33,40,37,45,41,48,43,50]);const w=88,h=42,p=3,min=Math.min(...arr),max=Math.max(...arr);const pts=arr.map((v,i)=>{const x=p+i*(w-2*p)/(arr.length-1);const y=h-p-(v-min)*(h-2*p)/((max-min)||1);return `${x.toFixed(1)},${y.toFixed(1)}`}).join(' ');const actual=history&&history.length>2?arr[arr.length-1]>=arr[0]:positive;const color=actual?'#ff5b65':'#4b9dff';return `<svg viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;}
 
-async function loadStockHistory(){try{const symbols=[...Object.values(STOCK_SYMBOL_MAP),FX_SYMBOL];const r=await fetch(STOCK_HISTORY_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({symbols})});if(!r.ok)throw new Error('stock-history '+r.status);const payload=await r.json();const reverse=Object.fromEntries(Object.entries(STOCK_SYMBOL_MAP).map(([k,v])=>[v,k]));liveHistory={};for(const [symbol,item] of Object.entries(payload.data||{})){if(symbol===FX_SYMBOL&&item?.lastPrice){liveHistory.__USDKRW=item;continue}const ticker=reverse[symbol];if(ticker&&Number.isFinite(Number(item?.lastPrice))&&Number(item.lastPrice)>0)liveHistory[ticker]=item;}window.__marketLastSuccess=Date.now();}catch(e){console.warn(e);window.__marketLastError=String(e)}}
+async function loadStockHistory(){try{const symbols=[...Object.values(STOCK_SYMBOL_MAP),FX_SYMBOL];const r=await fetch(STOCK_HISTORY_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({symbols})});if(!r.ok)throw new Error('stock-history '+r.status);const payload=await r.json();const reverse=Object.fromEntries(Object.entries(STOCK_SYMBOL_MAP).map(([k,v])=>[v,k]));const fresh={};for(const [symbol,item] of Object.entries(payload.data||{})){if(symbol===FX_SYMBOL&&item?.lastPrice){fresh.__USDKRW=item;continue}const ticker=reverse[symbol];if(ticker&&Number.isFinite(Number(item?.lastPrice))&&Number(item.lastPrice)>0)fresh[ticker]=item;}if(!fresh.TQQQ||!fresh.IONQ||!fresh.__USDKRW)throw new Error('주요 시세 또는 환율 누락');liveHistory=fresh;window.__marketLastSuccess=Date.now();window.__marketLastError=null;return true;}catch(e){console.warn(e);window.__marketLastError=String(e);return false;}}
 async function q(table,order,ascending=false){let x=sb.from(table).select('*');if(order)x=x.order(order,{ascending});const r=await x;if(r.error)throw r.error;return r.data||[]}
 
 function recentOptions(current){
@@ -455,16 +472,20 @@ function renderStocks(rows){
     (pnl>=0?'+':'-')+wonFull(Math.abs(pnl))+' ('+(pct>=0?'+':'')+pct.toFixed(2)+'%)'+(approximate?' · 추정':'');
   stockPnlSummary.className='stock-pnl '+(pnl>=0?'pos':'neg');
   stockList.innerHTML=stocks.map(x=>{
-    const name=x.name||displayName(x.ticker),price=x._livePrice,krw=x.ticker==='005930';
+    const originalName=x.name||displayName(x.ticker),parts=/^(.+?)\s*\((.+)\)\s*$/.exec(originalName);
+    const name=parts?parts[1]:originalName;
+    let owner=parts?parts[2]:'';
+    if(x.ticker==='TQQQ'&&owner){const sol=owner.match(/솔\s*([\d,]+)\s*주/),jh=owner.match(/주혁[\s\S]*?([\d,]+)\s*주/);if(sol&&jh)owner='솔 '+sol[1]+'주 · 주혁 '+jh[1]+'주';}
+    const price=x._livePrice,krw=x.ticker==='005930';
     const shown=price>0?(krw?'₩'+Math.round(price).toLocaleString('ko-KR'):'$'+price.toFixed(2)):(x.price||displayPrice(x.ticker));
     const pnl=x._livePnl,pct=x._livePnlPct,positive=pct!=null&&pct>=0;
     const pnlText=pnl==null?'-':(pnl>=0?'+₩':'-₩')+Math.abs(Math.round(pnl)).toLocaleString('ko-KR');
     const note=x._pnlBasis==='usd-estimate'?' · USD기준 추정':x._pnlBasis==='stored'?' · 저장값':'';
     const pctText=pct==null?'':`(${pct>=0?'+':''}${pct.toFixed(1)}%${note})`;
-    return `<div class="stock-row" onclick="openStockEdit('${x.ticker}')"><div><div class="stock-name ${x.ticker==='TQQQ'?'compact':''}">${name}</div><div class="stock-price">${shown} <span class="good">${x._isLive?'LIVE':'SNAP'}</span></div><div class="stock-ticker">${x.ticker}</div></div><div class="spark">${sparkSVG(x.ticker,positive)}</div><div class="stock-right"><div class="stock-market">${wonFull(x._liveMarketValue)}</div><div class="stock-item-pnl ${positive?'pos':'neg'}">${pnlText}<br>${pctText}</div></div><div class="chev">›</div></div>`;
+    return `<div class="stock-row" onclick="openStockEdit('${x.ticker}')"><div class="stock-detail"><div class="stock-name">${name}</div>${owner?'<div class="stock-owner">'+owner+'</div>':''}<div class="stock-price">${shown} <span class="good">${x._isLive?'LIVE':'SNAP'}</span></div><div class="stock-ticker">${x.ticker}</div></div><div class="spark">${sparkSVG(x.ticker,positive)}</div><div class="stock-right"><div class="stock-market">${wonFull(x._liveMarketValue)}</div><div class="stock-item-pnl ${positive?'pos':'neg'}">${pnlText}<br>${pctText}</div></div><div class="chev">›</div></div>`;
   }).join('');
   const fx=Number(liveHistory.__USDKRW?.lastPrice||0);
-  stockUpdated.textContent='최근 6개월 일봉 · 시세·환율 1분 자동갱신'+(fx>0?' · USD/KRW '+fx.toFixed(2):' · 환율 확인 불가')+' · '+(window.__marketLastSuccess?new Date(window.__marketLastSuccess).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'최근 저장값')+' 기준'+(approximate?' · 일부 수익률 원화 추정':'');
+  stockUpdated.textContent='최근 6개월 일봉 · 시세·환율 1분 갱신'+(fx>0?' · USD/KRW '+fx.toFixed(2):' · 환율 확인 불가')+' · '+(window.__marketLastSuccess?new Date(window.__marketLastSuccess).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'최근 저장값')+' 기준'+(window.__marketLastError?' · 시세 갱신 실패':'')+(approximate?' · 일부 수익률 원화 추정':'');
   if(editingTicker&&stockEditModal.classList.contains('show'))stockEditPreview();
   return total;
 }
@@ -485,14 +506,32 @@ async function load(){
     const now=new Date();const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1);const prevYM=ym(prevDate);
     const histP=loadStockHistory(),zP=loadZaritalk(),zPrevP=loadZaritalk(prevYM);
     const [tx,a,s,snaps]=await Promise.all([q('transactions','occurred_at'),q('assets','updated_at'),q('securities','updated_at'),q('net_worth_snapshots','snapshot_date',true)]);
-    await histP;const z=await zP;const zPrev=await zPrevP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a,stockValue);
+    const marketOk=await histP;const z=await zP;const zPrev=await zPrevP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a,stockValue);
     nw.textContent=won(netWorth);availableNw.textContent=won(available);loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);propertyEquity.textContent=won(PROPERTY_EQUITY);tenantDepositDebt.textContent='-'+won(tenantDeposits);
     const {income,expense}=monthlyCashFlow(tx,ym(now),z);const previous=monthlyCashFlow(tx,prevYM,zPrev);const prevRent=normalizeRent(zPrev)[0];
     const spendMeta=document.querySelector('#transactionsSection .section-meta');if(spendMeta)spendMeta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
     prevCfLabel.textContent='지난달 순현금흐름';prevMonthCF.textContent=won(previous.net);prevMonthCF.className='summary-value num '+(previous.net>=0?'good':'neg');prevMonthCFSub.textContent=monthLabel(prevDate)+' · 수입 '+won(previous.income)+' · 지출 '+won(previous.expense)+(prevRent.live?'':' · '+prevRent.status+' (수납 제외)');
     monthIncomeNote.textContent=rents[0].live?'월세 실제 수납 포함':rents[0].status+' · 수납 제외';document.querySelector('#monthlySection h2').textContent=monthLabel(now)+' 월별 결산';
-    monthTitle.textContent=monthLabel(now)+' 월별 결산';monthMeta.textContent=now.getFullYear()+'년 '+monthLabel(now);monthIncome.textContent=won(income);monthExpense.textContent=won(expense);monthCF.textContent=won(income-expense);monthCF.className='v num '+(income-expense>=0?'good':'neg');renderCategories(tx);renderTransactions(tx);await saveMonthlySnapshot(netWorth,totalAssets,totalDebt);const snaps2=await q('net_worth_snapshots','snapshot_date',true);renderTrend(snaps2,netWorth);updated.textContent='업데이트 '+new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    monthTitle.textContent=monthLabel(now)+' 월별 결산';monthMeta.textContent=now.getFullYear()+'년 '+monthLabel(now);monthIncome.textContent=won(income);monthExpense.textContent=won(expense);monthCF.textContent=won(income-expense);monthCF.className='v num '+(income-expense>=0?'good':'neg');renderCategories(tx);renderTransactions(tx);await saveMonthlySnapshot(netWorth,totalAssets,totalDebt);const snaps2=await q('net_worth_snapshots','snapshot_date',true);renderTrend(snaps2,netWorth);updated.textContent='업데이트 '+new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});return marketOk;
   }catch(e){updated.textContent='데이터 오류: '+e.message;console.error(e)}
+}
+
+let manualStockRefreshInProgress=false;
+async function refreshDashboard(){
+  if(manualStockRefreshInProgress)return;
+  const button=document.getElementById('stockRefreshButton');
+  manualStockRefreshInProgress=true;
+  if(button){button.disabled=true;button.textContent='갱신 중…';button.setAttribute('aria-busy','true');}
+  let success=false;
+  try{success=await load()===true;}catch(e){console.error('manual refresh',e);}
+  finally{
+    manualStockRefreshInProgress=false;
+    if(button){
+      button.disabled=false;button.removeAttribute('aria-busy');
+      button.textContent=success?'갱신 완료':'재시도';
+      setTimeout(()=>{if(!manualStockRefreshInProgress)button.textContent='새로고침';},2200);
+    }
+  }
 }
 
 function stockEditPreview(){
