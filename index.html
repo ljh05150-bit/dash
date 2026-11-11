@@ -136,6 +136,9 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 /* rent */
 .rent-grid{display:grid;grid-template-columns:1fr;gap:10px}.rent-card{background:rgba(10,24,40,.8);border:1px solid var(--line2);border-radius:18px;padding:14px}.rent-top{display:flex;justify-content:space-between;align-items:flex-start;gap:9px}.rent-name{font-size:16px;font-weight:820}.rent-info{font-size:9px;color:#7f94aa;margin-top:4px;line-height:1.45}.rent-label-row{display:flex;justify-content:space-between;align-items:end;margin-top:15px}.rent-label{font-size:10px;color:#8fa3ba}.rent-amount{font-size:17px;font-weight:840}.progress{height:18px;border-radius:999px;background:#354963;overflow:hidden;margin-top:8px;position:relative;border:1px solid rgba(255,255,255,.04)}.progress-fill{height:100%;background:linear-gradient(90deg,#2eba65,#4bd486);border-radius:999px;min-width:0}.progress-pct{position:absolute;left:7px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:850;color:#fff}.rent-foot{font-size:9px;color:#7d92a9;margin-top:8px}
 
+/* approved property financing */
+.financing-card{margin-top:10px;border-color:#315e70}.financing-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.financing-head h3{margin:0;font-size:17px;font-weight:820}.financing-sub{margin-top:5px;color:var(--muted);font-size:10px;line-height:1.5}.financing-status{color:var(--green);border-color:#296050;background:#102c29}.financing-interest{margin:17px 0 14px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 12px}.financing-interest .k{font-size:12px;color:#a9bed2}.financing-interest .v{font-size:26px;font-weight:850;color:var(--green);letter-spacing:-.04em;white-space:nowrap}.financing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 16px;padding:14px 0;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)}.financing-grid .k{font-size:10px;color:var(--muted)}.financing-grid .v{font-size:16px;font-weight:780;margin-top:5px;overflow-wrap:anywhere}.financing-note{margin-top:10px;font-size:10px;color:#91a8bd;line-height:1.7}.loan-status{font-size:9px;color:var(--green);font-weight:500;margin-top:4px}
+
 /* loans */
 .loan-list{border:1px solid var(--line2);border-radius:15px;overflow:hidden}.loan-row{display:grid;grid-template-columns:1fr auto auto;gap:9px;align-items:center;padding:12px 11px;background:#0a1828;border-top:1px solid var(--line2)}.loan-row:first-child{border-top:0}.loan-name{font-size:11px;font-weight:720}.loan-amt{font-size:11px;font-weight:800}.loan-rate{font-size:11px;font-weight:850;color:var(--blue2)}.liability-note{font-size:9px;color:#8095ab;margin-top:9px;line-height:1.5}
 
@@ -188,7 +191,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
       <div class="summary-card"><div class="summary-label"><span class="summary-icon">◉</span>순자산</div><div class="summary-value num" id="nw">-</div><div class="summary-sub good">전체 자산 - 전체 부채</div></div>
       <div class="summary-card summary-clickable" id="availableCard" role="button" tabindex="0"><div class="summary-label"><span class="summary-icon">↗</span>가용자금 <span class="summary-chevron">›</span></div><div class="summary-value num" id="availableNw">-</div><div class="summary-sub good">주식 + 계좌 실사용 가능액</div></div>
       <div class="summary-card"><div class="summary-label"><span class="summary-icon">↶</span><span id="prevCfLabel">지난달 순현금흐름</span></div><div class="summary-value num" id="prevMonthCF">-</div><div class="summary-sub" id="prevMonthCFSub">수입 - 지출</div></div>
-      <div class="summary-card"><div class="summary-label"><span class="summary-icon">%</span>총 대출</div><div class="summary-value num" id="loanTotal">-</div><div class="summary-sub">실행 대출만</div></div>
+      <div class="summary-card"><div class="summary-label"><span class="summary-icon">%</span>총 대출</div><div class="summary-value num" id="loanTotal">-</div><div class="summary-sub">실행 기준 · 송탄 승인액 별도</div></div>
     </div>
 
     <div class="asset-strip">
@@ -224,6 +227,17 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 
     <div class="section-title" id="rentSection"><h2>부동산 월세 현황</h2><span class="section-meta" id="rentMonthLabel">-</span></div>
     <div class="rent-grid" id="rentGrid"></div>
+    <section class="card financing-card" id="songtanFinancing" aria-labelledby="songtanTitle">
+      <div class="financing-head"><div><h3 id="songtanTitle">송탄스테이</h3><div class="financing-sub">2026.11.11 대출 승인 · 실행 예정</div></div><span class="pill financing-status">대출 승인</span></div>
+      <div class="financing-interest"><span class="k">월 예상 이자 · 연 <span id="songtanRate">-</span></span><strong class="v num" id="songtanMonthlyInterest">-</strong></div>
+      <div class="financing-grid">
+        <div><div class="k">매입가</div><div class="v num" id="songtanPurchasePrice">-</div></div>
+        <div><div class="k">승인 대출금</div><div class="v num" id="songtanApprovedLoan">-</div></div>
+        <div><div class="k">필요 자기자금</div><div class="v num" id="songtanOwnFunds">-</div></div>
+        <div><div class="k">매입가 대비 대출 비율</div><div class="v num" id="songtanLtv">-</div></div>
+      </div>
+      <div class="financing-note" id="songtanFinancingNote">-</div>
+    </section>
 
     <div class="section-title" id="loansSection"><h2>대출 · 부채</h2><span class="pill" id="loanPill">총 대출 -</span></div>
     <div class="card">
@@ -231,6 +245,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
         <div class="loan-row"><div class="loan-name">서희빌 주담대</div><div class="loan-amt num">3억 4,700만원</div><div class="loan-rate">3.81%</div></div>
         <div class="loan-row"><div class="loan-name">라움하우스 사업자대출</div><div class="loan-amt num">9억 2,000만원</div><div class="loan-rate">5.70%</div></div>
         <div class="loan-row"><div class="loan-name">신용대출</div><div class="loan-amt num">7,440만원</div><div class="loan-rate">4.96%</div></div>
+        <div class="loan-row"><div class="loan-name">송탄스테이<div class="loan-status">승인 · 실행 예정</div></div><div class="loan-amt num" id="songtanLoanListAmount">-</div><div class="loan-rate" id="songtanLoanListRate">-</div></div>
       </div>
       <div class="liability-note" id="liabilityNote">임대보증금은 대출과 별도 부채로 순자산 계산에 반영합니다. 신규 예상대출 4,727만원은 미실행이므로 제외합니다.</div>
     </div>
@@ -291,7 +306,8 @@ const CONFIG = {
     seohui:{name:'서희빌',propertyPk:811825,address:'경기 안성시 비룡2길 37-8',value:500000000,loan:347000000,rate:3.81,fallbackCharge:7770000,fallbackDeposit:61000000},
     raum:{name:'라움하우스',propertyPk:884400,value:1050000000,loan:920000000,rate:5.70,fallbackCharge:7410000,fallbackDeposit:32400000}
   },
-  expectedLoan:47270000
+  expectedLoan:47270000,
+  songtanFinancing:{name:'송탄스테이',purchasePrice:1904000000,approvedLoan:1610000000,annualRate:5.9,status:'approved',approvedDate:'2026-11-11'}
 };
 const {loadZaritalk,normalizeRent,zaritalkPaidTotal,monthlyCashFlow}=FinanceCore.createCashFlow({client:sb,supabaseUrl:SUPABASE_URL,supabaseKey:SUPABASE_KEY,properties:CONFIG.properties});
 const STATIC_LOANS = CONFIG.properties.seohui.loan + CONFIG.properties.raum.loan + CONFIG.personalLoan;
@@ -341,6 +357,26 @@ function renderAvailableAssets(accountRows, stockValue){
 
 function won(n){n=Number(n||0);const a=Math.abs(n),s=n<0?'-':'';if(a>=100000000)return s+(a/100000000).toFixed(a%100000000?2:0)+'억';if(a>=10000)return s+Math.round(a/10000).toLocaleString('ko-KR')+'만';return s+a.toLocaleString('ko-KR')+'원'}
 function wonFull(n){return '₩'+Math.round(Number(n||0)).toLocaleString('ko-KR')}
+function calculateSongtanFinancing(financing){
+  const annualInterest=financing.approvedLoan*financing.annualRate/100;
+  return {annualInterest,monthlyInterest:annualInterest/12,ownFunds:financing.purchasePrice-financing.approvedLoan,ltv:financing.approvedLoan/financing.purchasePrice*100};
+}
+function renderSongtanFinancing(){
+  const f=CONFIG.songtanFinancing,c=calculateSongtanFinancing(f);
+  const full=n=>Math.round(n).toLocaleString('ko-KR')+'원';
+  const text=(id,value)=>{document.getElementById(id).textContent=value};
+  text('songtanRate',f.annualRate.toFixed(1)+'%');
+  text('songtanMonthlyInterest',full(c.monthlyInterest));
+  text('songtanPurchasePrice',won(f.purchasePrice));
+  text('songtanApprovedLoan',won(f.approvedLoan));
+  text('songtanOwnFunds',won(c.ownFunds));
+  text('songtanLtv',c.ltv.toFixed(2)+'%');
+  text('songtanLoanListAmount',won(f.approvedLoan));
+  text('songtanLoanListRate',f.annualRate.toFixed(1)+'%');
+  text('songtanFinancingNote','연 예상 이자 '+full(c.annualInterest)+' · 원금 × 연이율 ÷ 12 기준. 실제 이자는 실행일·일수에 따라 달라집니다. 자기자금은 매입가와 대출의 차액이며 취득세·법무비 등은 별도입니다.');
+  text('liabilityNote','임대보증금은 대출과 별도 부채입니다. 송탄스테이 승인 대출 '+won(f.approvedLoan)+'은 실행 전이므로 현재 총 대출·순자산에서 제외하며, 이자도 실제 출금 시 지출에 반영합니다. 신규 예상대출 '+won(CONFIG.expectedLoan)+'도 미실행으로 제외합니다.');
+}
+renderSongtanFinancing();
 function ym(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
 function monthLabel(d){return (d.getMonth()+1)+'월'}
 function calcPnl(value,pct){pct=Number(pct);if(!Number.isFinite(pct)||pct<=-100)return null;const cost=Number(value)/(1+pct/100);return Number(value)-cost}
@@ -658,3 +694,4 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </script>
 </body>
 </html>
+
