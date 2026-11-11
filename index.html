@@ -140,7 +140,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 .financing-card{margin-top:10px;border-color:#315e70}.financing-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.financing-head h3{margin:0;font-size:17px;font-weight:820}.financing-sub{margin-top:5px;color:var(--muted);font-size:10px;line-height:1.5}.financing-status{color:var(--green);border-color:#296050;background:#102c29}.financing-interest{margin:17px 0 14px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 12px}.financing-interest .k{font-size:12px;color:#a9bed2}.financing-interest .v{font-size:26px;font-weight:850;color:var(--green);letter-spacing:-.04em;white-space:nowrap}.financing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 16px;padding:14px 0;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)}.financing-grid .k{font-size:10px;color:var(--muted)}.financing-grid .v{font-size:16px;font-weight:780;margin-top:5px;overflow-wrap:anywhere}.financing-note{margin-top:10px;font-size:10px;color:#91a8bd;line-height:1.7}.loan-status{font-size:9px;color:var(--green);font-weight:500;margin-top:4px}
 
 /* loans */
-.loan-list{border:1px solid var(--line2);border-radius:15px;overflow:hidden}.loan-row{display:grid;grid-template-columns:1fr auto auto;gap:9px;align-items:center;padding:12px 11px;background:#0a1828;border-top:1px solid var(--line2)}.loan-row:first-child{border-top:0}.loan-name{font-size:11px;font-weight:720}.loan-amt{font-size:11px;font-weight:800}.loan-rate{font-size:11px;font-weight:850;color:var(--blue2)}.liability-note{font-size:9px;color:#8095ab;margin-top:9px;line-height:1.5}
+.loan-list{border:1px solid var(--line2);border-radius:15px;overflow:hidden}.loan-row{display:grid;grid-template-columns:minmax(0,1fr) max-content 4em;gap:9px;align-items:center;padding:12px 11px;background:#0a1828;border-top:1px solid var(--line2)}.loan-row:first-child{border-top:0}.loan-name{min-width:0;font-size:11px;font-weight:720}.loan-amt{font-size:11px;font-weight:800;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.loan-rate{font-size:11px;font-weight:850;color:var(--blue2);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.liability-note{font-size:9px;color:#8095ab;margin-top:9px;line-height:1.5}
 
 /* trend */
 .trend-wrap{margin-top:8px}.trend-wrap svg{width:100%;height:100%;display:block}.trend-meta{display:flex;justify-content:space-between;gap:10px;align-items:center}.trend-badge{font-size:9px;color:#ff7a81;border:1px solid #583139;background:#261922;border-radius:999px;padding:6px 8px}
@@ -373,7 +373,7 @@ function renderSongtanFinancing(){
   text('songtanOwnFunds',won(c.ownFunds));
   text('songtanLtv',c.ltv.toFixed(2)+'%');
   text('songtanLoanListAmount',Math.floor(f.approvedLoan/100000000)+'억 '+Math.round((f.approvedLoan%100000000)/10000).toLocaleString('ko-KR')+'만원');
-  text('songtanLoanListRate',f.annualRate.toFixed(1)+'%');
+  text('songtanLoanListRate',f.annualRate.toFixed(2)+'%');
   text('songtanFinancingNote','연 예상 이자 '+full(c.annualInterest)+' · 원금 × 연이율 ÷ 12 기준. 실제 이자는 실행일·일수에 따라 달라집니다. 자기자금은 매입가와 대출의 차액이며 취득세·법무비 등은 별도입니다.');
   text('liabilityNote','총 대출은 송탄스테이 승인 대출 '+won(f.approvedLoan)+'을 포함합니다. 순자산·부동산 지분에도 송탄 매입가 '+won(f.purchasePrice)+'과 승인 대출을 함께 반영했습니다. 승인 상태는 실행 예정이며, 실제 대출 입금·이자 출금은 거래 확인 시 반영합니다. 임대보증금은 별도 부채이며 신규 예상대출 '+won(CONFIG.expectedLoan)+'은 제외합니다.');
 }
