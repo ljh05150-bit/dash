@@ -188,15 +188,15 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
     </div>
 
     <div class="summary-grid">
-      <div class="summary-card"><div class="summary-label"><span class="summary-icon">◉</span>순자산</div><div class="summary-value num" id="nw">-</div><div class="summary-sub good">전체 자산 - 전체 부채</div></div>
+      <div class="summary-card"><div class="summary-label"><span class="summary-icon">◉</span>순자산</div><div class="summary-value num" id="nw">-</div><div class="summary-sub good">송탄 매입·승인 반영 · 자산 - 부채</div></div>
       <div class="summary-card summary-clickable" id="availableCard" role="button" tabindex="0"><div class="summary-label"><span class="summary-icon">↗</span>가용자금 <span class="summary-chevron">›</span></div><div class="summary-value num" id="availableNw">-</div><div class="summary-sub good">주식 + 계좌 실사용 가능액</div></div>
       <div class="summary-card"><div class="summary-label"><span class="summary-icon">↶</span><span id="prevCfLabel">지난달 순현금흐름</span></div><div class="summary-value num" id="prevMonthCF">-</div><div class="summary-sub" id="prevMonthCFSub">수입 - 지출</div></div>
-      <div class="summary-card"><div class="summary-label"><span class="summary-icon">%</span>총 대출</div><div class="summary-value num" id="loanTotal">-</div><div class="summary-sub">실행 기준 · 송탄 승인액 별도</div></div>
+      <div class="summary-card"><div class="summary-label"><span class="summary-icon">%</span>총 대출</div><div class="summary-value num" id="loanTotal">-</div><div class="summary-sub">송탄 승인 대출 16.1억 포함</div></div>
     </div>
 
     <div class="asset-strip">
       <div class="asset-mini"><div class="k">거주보증금</div><div class="v num">1.00억</div></div>
-      <div class="asset-mini"><div class="k">부동산 지분</div><div class="v num" id="propertyEquity">2.83억</div></div>
+      <div class="asset-mini"><div class="k">부동산 지분</div><div class="v num" id="propertyEquity">5.77억</div></div>
       <div class="asset-mini"><div class="k">임대보증금 부채</div><div class="v num neg" id="tenantDepositDebt">-</div></div>
     </div>
 <a href="./settlement.html" class="settlement-link" aria-label="월별·연별 결산 보기">
@@ -310,9 +310,10 @@ const CONFIG = {
   songtanFinancing:{name:'송탄스테이',purchasePrice:1904000000,approvedLoan:1610000000,annualRate:5.9,status:'approved',approvedDate:'2026-11-11'}
 };
 const {loadZaritalk,normalizeRent,zaritalkPaidTotal,monthlyCashFlow}=FinanceCore.createCashFlow({client:sb,supabaseUrl:SUPABASE_URL,supabaseKey:SUPABASE_KEY,properties:CONFIG.properties});
-const STATIC_LOANS = CONFIG.properties.seohui.loan + CONFIG.properties.raum.loan + CONFIG.personalLoan;
-const PROPERTY_VALUE = CONFIG.properties.seohui.value + CONFIG.properties.raum.value;
-const PROPERTY_EQUITY = PROPERTY_VALUE - CONFIG.properties.seohui.loan - CONFIG.properties.raum.loan;
+// Include the approved Songtan loan and its purchase value together in the requested dashboard basis.
+const STATIC_LOANS = CONFIG.properties.seohui.loan + CONFIG.properties.raum.loan + CONFIG.personalLoan + CONFIG.songtanFinancing.approvedLoan;
+const PROPERTY_VALUE = CONFIG.properties.seohui.value + CONFIG.properties.raum.value + CONFIG.songtanFinancing.purchasePrice;
+const PROPERTY_EQUITY = PROPERTY_VALUE - CONFIG.properties.seohui.loan - CONFIG.properties.raum.loan - CONFIG.songtanFinancing.approvedLoan;
 const ZARITALK_URL = SUPABASE_URL + '/functions/v1/zaritalk-sync';
 const STOCK_HISTORY_URL = SUPABASE_URL + '/functions/v1/stock-history';
 const STOCK_SYMBOL_MAP={"005930":"005930.KS","SLDP":"SLDP","TQQQ":"TQQQ","IONQ":"IONQ","BMNU":"BMNU"};
@@ -374,7 +375,7 @@ function renderSongtanFinancing(){
   text('songtanLoanListAmount',won(f.approvedLoan));
   text('songtanLoanListRate',f.annualRate.toFixed(1)+'%');
   text('songtanFinancingNote','연 예상 이자 '+full(c.annualInterest)+' · 원금 × 연이율 ÷ 12 기준. 실제 이자는 실행일·일수에 따라 달라집니다. 자기자금은 매입가와 대출의 차액이며 취득세·법무비 등은 별도입니다.');
-  text('liabilityNote','임대보증금은 대출과 별도 부채입니다. 송탄스테이 승인 대출 '+won(f.approvedLoan)+'은 실행 전이므로 현재 총 대출·순자산에서 제외하며, 이자도 실제 출금 시 지출에 반영합니다. 신규 예상대출 '+won(CONFIG.expectedLoan)+'도 미실행으로 제외합니다.');
+  text('liabilityNote','총 대출은 송탄스테이 승인 대출 '+won(f.approvedLoan)+'을 포함합니다. 순자산·부동산 지분에도 송탄 매입가 '+won(f.purchasePrice)+'과 승인 대출을 함께 반영했습니다. 승인 상태는 실행 예정이며, 실제 대출 입금·이자 출금은 거래 확인 시 반영합니다. 임대보증금은 별도 부채이며 신규 예상대출 '+won(CONFIG.expectedLoan)+'은 제외합니다.');
 }
 renderSongtanFinancing();
 function ym(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
