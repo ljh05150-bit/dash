@@ -56,6 +56,8 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 #auth{max-width:460px;margin:80px auto 0}
 #auth h1{font-size:25px;margin-bottom:8px}
 #auth input{width:100%;border:1px solid var(--line);background:#081525;color:white;border-radius:14px;padding:13px 14px;margin-top:9px;font-size:14px}
+#auth [hidden]{display:none}
+#auth #returnToLogin{margin-top:12px}
 #auth button{width:100%;margin-top:9px}
 #dash{display:none}
 
@@ -170,12 +172,22 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 <div class="wrap">
   <div id="auth" class="card">
     <h1>우리집 재무 대시보드</h1>
-    <div class="subtitle">로그인하면 가족 자산과 가계부를 한 화면에서 확인할 수 있어요.</div>
-    <input id="email" type="email" placeholder="이메일">
-    <input id="pw" type="password" placeholder="비밀번호">
-    <button class="btn" onclick="login()">로그인</button>
-    <button class="btn" onclick="signup()">계정 만들기</button>
-    <div id="msg" class="subtitle"></div>
+    <div id="loginPanel">
+      <div class="subtitle">로그인하면 가족 자산과 가계부를 한 화면에서 확인할 수 있어요.</div>
+      <input id="email" type="email" autocomplete="username" aria-label="이메일" placeholder="이메일">
+      <input id="pw" type="password" autocomplete="current-password" aria-label="비밀번호" placeholder="비밀번호">
+      <button class="btn" onclick="login()">로그인</button>
+      <button class="btn" onclick="signup()">계정 만들기</button>
+      <button type="button" class="btn" id="requestReset">비밀번호 재설정</button>
+    </div>
+    <form id="recoveryForm" hidden>
+      <p class="subtitle" id="recoveryAccount"></p>
+      <input type="password" id="newPassword" autocomplete="new-password" placeholder="새 비밀번호" aria-label="새 비밀번호" required>
+      <input type="password" id="confirmPassword" autocomplete="new-password" placeholder="새 비밀번호 확인" aria-label="새 비밀번호 확인" required>
+      <button class="btn" id="savePassword" type="submit">새 비밀번호 저장</button>
+    </form>
+    <div id="msg" class="subtitle" role="status" aria-live="polite"></div>
+    <a id="returnToLogin" class="btn" href="./" hidden>로그인 화면으로</a>
   </div>
 
   <div id="dash"><div id="topAnchor"></div>
@@ -290,8 +302,12 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 const PREVIEW_MODE = new URLSearchParams(location.search).get('preview') === '1';
 const SUPABASE_URL = 'https://ixuxaqerdftadfnkxxui.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_2Q42l50u-YjgBmu5xDvoAA_LUtLhm8j';
+const recoveryParams = new URLSearchParams(location.hash.slice(1));
+const recoveryReturn = recoveryParams.get('type') === 'recovery' || recoveryParams.has('error');
 const sb = PREVIEW_MODE ? null : supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'family-finance-auth'}
+  auth:recoveryReturn
+    ? {persistSession:false,autoRefreshToken:false,detectSessionInUrl:true,storageKey:'family-finance-recovery'}
+    : {persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'family-finance-auth'}
 });
 
 const CONFIG = {
@@ -496,6 +512,69 @@ window.openRecentTransaction=openRecentTransaction;
 window.closeRecentTransaction=closeRecentTransaction;
 window.saveRecentTransaction=saveRecentTransaction;
 
+const requestResetButton=document.getElementById('requestReset');
+const recoveryForm=document.getElementById('recoveryForm');
+const returnToLogin=document.getElementById('returnToLogin');
+let recoveryUserId=null;
+let passwordSaved=false;
+
+requestResetButton.addEventListener('click',async()=>{
+  const address=email.value.trim();
+  if(!address || !email.validity.valid){
+    msg.textContent='가입한 이메일 주소를 먼저 입력하세요.';
+    email.focus();
+    return;
+  }
+  requestResetButton.disabled=true;
+  msg.textContent='재설정 메일을 요청하고 있어요.';
+  try{
+    const {error}=await sb.auth.resetPasswordForEmail(address,{redirectTo:new URL('./',location.href).href});
+    if(error)throw error;
+    msg.textContent='가입한 주소라면 재설정 메일이 도착합니다. 받은메일함과 스팸함을 확인하세요.';
+  }catch(error){
+    msg.textContent=error.status===429?'요청이 많습니다. 잠시 후 다시 시도하세요.':'메일 요청에 실패했습니다. 잠시 후 다시 시도하세요.';
+  }finally{requestResetButton.disabled=false;}
+});
+
+function showRecoverySession(session){
+  document.getElementById('loginPanel').hidden=true;
+  auth.style.display='block';
+  dash.style.display='none';
+  returnToLogin.hidden=false;
+  if(passwordSaved)return;
+  recoveryUserId=session?.user?.id || null;
+  recoveryForm.hidden=!recoveryUserId;
+  if(recoveryUserId){
+    document.getElementById('recoveryAccount').textContent=session.user.email+' 계정의 새 비밀번호를 입력하세요.';
+  }else{
+    msg.textContent='재설정 링크를 확인할 수 없습니다. 로그인 화면에서 새 메일을 요청하세요.';
+  }
+}
+
+recoveryForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!recoveryUserId || passwordSaved)return;
+  const password=recoveryForm.querySelector('#newPassword').value;
+  if(password!==recoveryForm.querySelector('#confirmPassword').value){
+    msg.textContent='두 비밀번호가 일치하지 않습니다.';
+    return;
+  }
+  const button=document.getElementById('savePassword');
+  button.disabled=true;
+  try{
+    const {error}=await sb.auth.updateUser({password});
+    if(error)throw error;
+    passwordSaved=true;
+    recoveryForm.reset();
+    recoveryForm.hidden=true;
+    msg.textContent='비밀번호를 변경했습니다. 새 비밀번호로 로그인하세요.';
+    returnToLogin.focus();
+  }catch(error){
+    msg.textContent=error.code==='same_password'?'기존 비밀번호와 다른 비밀번호를 입력하세요.':
+      error.code==='weak_password'?'더 길고 추측하기 어려운 비밀번호를 입력하세요.':'저장하지 못했습니다. 재설정 메일을 다시 요청하세요.';
+  }finally{button.disabled=false;}
+});
+
 async function signup(){const r=await sb.auth.signUp({email:email.value,password:pw.value});msg.textContent=r.error?r.error.message:'계정 생성 완료. 이메일 인증이 필요하면 메일을 확인하세요.'}
 async function login(){const r=await sb.auth.signInWithPassword({email:email.value,password:pw.value});msg.textContent=r.error?r.error.message:''}
 async function logout(){if(PREVIEW_MODE)return;await sb.auth.signOut()}
@@ -670,7 +749,16 @@ async function seedStocks(){if(PREVIEW_MODE)return;seedBtn.disabled=true;try{con
 
 function renderPreview(){auth.style.display='none';dash.style.display='block';updated.textContent='미리보기 · 실제 index는 Supabase 자동연동';liveHistory={};const stockValue=renderStocks(INITIAL_STOCKS);const rents=normalizeRent(null);renderRent(rents);const previewAccounts=[{name:'토스뱅크',value:1100219}];const accountTotal=previewAccounts.reduce((s,x)=>s+assetValue(x),0),tenant=93400000,totalLoans=STATIC_LOANS,totalAssets=accountTotal+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit,totalDebt=totalLoans+tenant,net=totalAssets-totalDebt;const available=renderAvailableAssets(previewAccounts,stockValue);nw.textContent=won(net);availableNw.textContent=won(available);prevCfLabel.textContent='지난달 순현금흐름';prevMonthCF.textContent='+620만';prevMonthCF.className='summary-value num good';prevMonthCFSub.textContent='수입 1,120만 · 지출 500만';renderTotalDebt(totalDebt);tenantDepositDebt.textContent='-'+won(tenant);propertyEquity.textContent=won(PROPERTY_EQUITY);monthTitle.textContent='9월 월별 결산';monthMeta.textContent='2026년 9월';monthIncome.textContent='1,307만';monthExpense.textContent='435만';monthCF.textContent='+872만';const fakeTx=[{occurred_at:'2026-09-05T10:00:00',amount:-135000,category:'식비',merchant:'이마트',account:'토스 부부생활비'},{occurred_at:'2026-09-04T19:00:00',amount:-78000,category:'쇼핑',merchant:'쿠팡',account:'토스 부부생활비'},{occurred_at:'2026-09-03T12:00:00',amount:-62000,category:'육아',merchant:'키즈샵',account:'롯데카드'},{occurred_at:'2026-09-02T09:00:00',amount:-47000,category:'교통',merchant:'주유',account:'현대카드'},{occurred_at:'2026-09-01T18:00:00',amount:-113000,category:'기타',merchant:'생활비',account:'K뱅크 체크카드'}];renderCategories(fakeTx);renderTransactions(fakeTx);const snaps=[];const vals=[480000000,495000000,510000000,525000000,535000000,555000000,570000000,585000000,600000000,612000000,626000000,net];for(let i=0;i<12;i++){const d=new Date(2025,9+i,1);snaps.push({snapshot_date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`,net_worth:vals[i]})}renderTrend(snaps,net);}
 
-if(PREVIEW_MODE){renderPreview()}else{sb.auth.onAuthStateChange((_e,s)=>show(!!s));sb.auth.getSession().then(r=>show(!!r.data.session));setInterval(()=>{if(dash.style.display!=='none'&&!document.hidden&&!window.__marketRefreshing){window.__marketRefreshing=true;Promise.resolve(load()).finally(()=>{window.__marketRefreshing=false})}},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&dash.style.display!=='none'&&!window.__marketRefreshing){window.__marketRefreshing=true;Promise.resolve(load()).finally(()=>{window.__marketRefreshing=false})}})}
+if(!PREVIEW_MODE && recoveryReturn){
+  document.getElementById('loginPanel').hidden=true;
+  msg.textContent='재설정 링크를 확인하고 있어요.';
+  sb.auth.onAuthStateChange((event,session)=>{
+    if(event==='INITIAL_SESSION' || event==='PASSWORD_RECOVERY' || event==='SIGNED_OUT'){
+      if(session)msg.textContent='';
+      showRecoverySession(session);
+    }
+  });
+}else if(PREVIEW_MODE){renderPreview()}else{sb.auth.onAuthStateChange((_e,s)=>show(!!s));sb.auth.getSession().then(r=>show(!!r.data.session));setInterval(()=>{if(dash.style.display!=='none'&&!document.hidden&&!window.__marketRefreshing){window.__marketRefreshing=true;Promise.resolve(load()).finally(()=>{window.__marketRefreshing=false})}},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&dash.style.display!=='none'&&!window.__marketRefreshing){window.__marketRefreshing=true;Promise.resolve(load()).finally(()=>{window.__marketRefreshing=false})}})}
 
 function bindAvailableAssetsInteraction(){const card=document.getElementById('availableCard');if(card){card.addEventListener('click',openAvailableAssets);card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openAvailableAssets();}});}}
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bindAvailableAssetsInteraction,{once:true});}else{bindAvailableAssetsInteraction();}
