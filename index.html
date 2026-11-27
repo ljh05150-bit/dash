@@ -227,19 +227,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
 
     <div class="section-title" id="rentSection"><h2>부동산 월세 현황</h2><span class="section-meta" id="rentMonthLabel">-</span></div>
     <div class="rent-grid" id="rentGrid"></div>
-    <section class="card financing-card" id="songtanFinancing" aria-labelledby="songtanTitle">
-      <div class="financing-head"><div><h3 id="songtanTitle">송탄스테이</h3><div class="financing-sub">2026.11.27 잔금 완납 · 주혁 소유</div></div><span class="pill financing-status">취득 완료</span></div>
-      <div class="financing-interest"><span class="k">월 예상 이자 · 연 <span id="songtanRate">-</span></span><strong class="v num" id="songtanMonthlyInterest">-</strong></div>
-      <div class="financing-grid">
-        <div><div class="k">매입가</div><div class="v num" id="songtanPurchasePrice">-</div></div>
-        <div><div class="k">대출금</div><div class="v num" id="songtanApprovedLoan">-</div></div>
-        <div><div class="k">매입가 기준 자기자금</div><div class="v num" id="songtanOwnFunds">-</div></div>
-        <div><div class="k">매입가 대비 대출 비율</div><div class="v num" id="songtanLtv">-</div></div>
-        <div><div class="k">예상 취득세 · 4.6%</div><div class="v num" id="songtanAcquisitionTax">-</div></div>
-        <div><div class="k">기납부 입찰보증금</div><div class="v num" id="songtanPaidDeposit">-</div></div>
-        <div><div class="k">순자산 반영 건물가</div><div class="v num" id="songtanNetWorthValue">-</div></div>
-      </div>
-    </section>
+    <div id="propertyFinancingCards"></div>
 
     <div class="section-title" id="loansSection"><h2>대출 · 부채</h2><span class="pill" id="loanPill">총부채 -</span></div>
     <div class="card">
@@ -310,8 +298,8 @@ const CONFIG = {
   residenceDeposit:100000000,
   personalLoan:74400000,
   properties:{
-    seohui:{name:'서희빌',propertyPk:811825,address:'경기 안성시 비룡2길 37-8',value:500000000,loan:347000000,rate:3.81,fallbackCharge:7770000,fallbackDeposit:61000000},
-    raum:{name:'라움하우스',propertyPk:884400,value:1050000000,loan:920000000,rate:5.70,fallbackCharge:7410000,fallbackDeposit:32400000}
+    seohui:{name:'서희빌',owner:'주혁',propertyPk:811825,address:'경기 안성시 비룡2길 37-8',value:500000000,loan:347000000,rate:3.81,fallbackCharge:7770000,fallbackDeposit:61000000},
+    raum:{name:'라움하우스',owner:'솔',propertyPk:884400,value:1050000000,loan:920000000,rate:5.70,fallbackCharge:7410000,fallbackDeposit:32400000}
   },
   songtanFinancing:{name:'송탄스테이',purchasePrice:1904000000,loan:1610000000,annualRate:5.9,acquisitionTaxRate:4.6,paidDeposit:190000000}
 };
@@ -386,30 +374,36 @@ function renderLoanRows(containerId,loans){
   });
   document.getElementById(containerId).replaceChildren(...rows);
 }
-function calculateSongtanFinancing(financing){
-  const annualInterest=financing.loan*financing.annualRate/100;
-  const ownFunds=financing.purchasePrice-financing.loan;
-  const acquisitionTax=Math.round(financing.purchasePrice*Number(financing.acquisitionTaxRate||0)/100);
-  return {annualInterest,monthlyInterest:annualInterest/12,ownFunds,ltv:financing.loan/financing.purchasePrice*100,acquisitionTax};
-}
-function renderSongtanFinancing(){
-  const f=CONFIG.songtanFinancing,c=calculateSongtanFinancing(f);
+function renderFinancingCard({id,name,subtitle,status,purchasePrice,loan,annualRate,acquisitionTaxRate,paidDeposit}){
   const full=n=>Math.round(n).toLocaleString('ko-KR')+'원';
-  const text=(id,value)=>{document.getElementById(id).textContent=value};
-  text('songtanRate',f.annualRate.toFixed(1)+'%');
-  text('songtanMonthlyInterest',full(c.monthlyInterest));
-  text('songtanPurchasePrice',won(f.purchasePrice));
-  text('songtanApprovedLoan',won(f.loan));
-  text('songtanOwnFunds',won(c.ownFunds));
-  text('songtanLtv',c.ltv.toFixed(2)+'%');
-  text('songtanAcquisitionTax',full(c.acquisitionTax));
-  text('songtanPaidDeposit',full(f.paidDeposit));
-  text('songtanNetWorthValue',full(f.purchasePrice));
-  text('songtanLoanListAmount',Math.floor(f.loan/100000000)+'억 '+Math.round((f.loan%100000000)/10000).toLocaleString('ko-KR')+'만원');
-  text('songtanLoanListRate',f.annualRate.toFixed(2)+'%');
-  text('liabilityNote','총 대출에는 송탄스테이 대출 '+won(f.loan)+'이 포함됩니다. 임대보증금은 별도 부채입니다.');
+  const fields=[
+    ['매입가',won(purchasePrice)],
+    ['대출금',won(loan)],
+    ['매입가 기준 자기자금',won(purchasePrice-loan)],
+    ['매입가 대비 대출 비율',(loan/purchasePrice*100).toFixed(2)+'%']
+  ];
+  if(acquisitionTaxRate!=null) fields.push([`예상 취득세 · ${acquisitionTaxRate}%`,full(purchasePrice*acquisitionTaxRate/100)]);
+  if(paidDeposit!=null) fields.push(['기납부 입찰보증금',full(paidDeposit)]);
+  fields.push(['순자산 반영 건물가',full(purchasePrice)]);
+  return `<section class="card financing-card" id="${id}Financing" aria-labelledby="${id}Title">
+    <div class="financing-head"><div><h3 id="${id}Title">${name}</h3><div class="financing-sub">${subtitle}</div></div><span class="pill financing-status">${status}</span></div>
+    <div class="financing-interest"><span class="k">월 예상 이자 · 연 ${annualRate}%</span><strong class="v num">${full(loan*annualRate/100/12)}</strong></div>
+    <div class="financing-grid">${fields.map(([label,value])=>`<div><div class="k">${label}</div><div class="v num">${value}</div></div>`).join('')}</div>
+  </section>`;
 }
-renderSongtanFinancing();
+function renderPropertyFinancing(){
+  const f=CONFIG.songtanFinancing;
+  const rentals=Object.entries(CONFIG.properties).map(([id,p])=>({
+    id,name:p.name,subtitle:p.owner+' 소유',status:'임대 운영 중',
+    purchasePrice:p.value,loan:p.loan,annualRate:p.rate
+  }));
+  const cards=[...rentals,{...f,id:'songtan',subtitle:'2026.11.27 잔금 완납 · 주혁 소유',status:'취득 완료'}];
+  document.getElementById('propertyFinancingCards').innerHTML=cards.map(renderFinancingCard).join('');
+  document.getElementById('songtanLoanListAmount').textContent=Math.floor(f.loan/100000000)+'억 '+Math.round((f.loan%100000000)/10000).toLocaleString('ko-KR')+'만원';
+  document.getElementById('songtanLoanListRate').textContent=f.annualRate.toFixed(2)+'%';
+  document.getElementById('liabilityNote').textContent='총 대출에는 송탄스테이 대출 '+won(f.loan)+'이 포함됩니다. 임대보증금은 별도 부채입니다.';
+}
+renderPropertyFinancing();
 function ym(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
 function monthLabel(d){return (d.getMonth()+1)+'월'}
 function calcPnl(value,pct){pct=Number(pct);if(!Number.isFinite(pct)||pct<=-100)return null;const cost=Number(value)/(1+pct/100);return Number(value)-cost}
