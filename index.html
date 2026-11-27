@@ -241,7 +241,7 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
       </div>
     </section>
 
-    <div class="section-title" id="loansSection"><h2>대출 · 부채</h2><span class="pill" id="loanPill">총 대출 -</span></div>
+    <div class="section-title" id="loansSection"><h2>대출 · 부채</h2><span class="pill" id="loanPill">총부채 -</span></div>
     <div class="card">
       <div class="loan-list">
         <div class="loan-row"><div class="loan-name">서희빌 주담대</div><div class="loan-amt num">3억 4,700만원</div><div class="loan-rate">3.81%</div></div>
@@ -250,6 +250,10 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
         <div class="loan-row"><div class="loan-name">송탄스테이</div><div class="loan-amt num" id="songtanLoanListAmount">-</div><div class="loan-rate" id="songtanLoanListRate">-</div></div>
         <div id="additionalLoans"></div>
       </div>
+      <section id="familyDebtSection" hidden>
+        <h3>가족 차입금 <span class="pill" id="familyDebtTotal"></span></h3>
+        <div class="loan-list" id="familyDebtRows"></div>
+      </section>
       <div class="liability-note" id="liabilityNote">임대보증금은 대출과 별도 부채로 순자산 계산에 반영합니다.</div>
     </div>
 
@@ -359,7 +363,7 @@ function renderAvailableAssets(accountRows, stockValue){
 
 function won(n){n=Number(n||0);const a=Math.abs(n),s=n<0?'-':'';if(a>=100000000)return s+(a/100000000).toFixed(a%100000000?2:0)+'억';if(a>=10000)return s+Math.round(a/10000).toLocaleString('ko-KR')+'만';return s+a.toLocaleString('ko-KR')+'원'}
 function wonFull(n){return '₩'+Math.round(Number(n||0)).toLocaleString('ko-KR')}
-function renderAdditionalLoans(loans){
+function renderLoanRows(containerId,loans){
   const rows=loans.map(loan=>{
     const row=document.createElement('div');
     row.className='loan-row';
@@ -375,7 +379,7 @@ function renderAdditionalLoans(loans){
     }
     return row;
   });
-  document.getElementById('additionalLoans').replaceChildren(...rows);
+  document.getElementById(containerId).replaceChildren(...rows);
 }
 function calculateSongtanFinancing(financing){
   const annualInterest=financing.loan*financing.annualRate/100;
@@ -575,9 +579,14 @@ async function load(){
     const now=new Date();const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1);const prevYM=ym(prevDate);
     const histP=loadStockHistory(),zP=loadZaritalk(),zPrevP=loadZaritalk(prevYM);
     const [tx,a,s,snaps]=await Promise.all([q('transactions','occurred_at'),q('assets','updated_at'),q('securities','updated_at'),q('net_worth_snapshots','snapshot_date',true)]);
-    renderAdditionalLoans(a.filter(asset=>asset.asset_type==='loan' && asset.debt>0));
-    const marketOk=await histP;const z=await zP;const zPrev=await zPrevP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a.filter(asset=>asset.asset_type!=='loan'),stockValue);
-    nw.textContent=won(netWorth);availableNw.textContent=won(available);loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);propertyEquity.textContent=won(PROPERTY_EQUITY);tenantDepositDebt.textContent='-'+won(tenantDeposits);
+    const familyLoans=a.filter(asset=>asset.asset_type==='family_loan');
+    const familyDebt=familyLoans.reduce((sum,loan)=>sum+Number(loan.debt||0),0);
+    renderLoanRows('additionalLoans',a.filter(asset=>asset.asset_type==='loan' && asset.debt>0));
+    renderLoanRows('familyDebtRows',familyLoans.filter(loan=>loan.debt>0));
+    document.getElementById('familyDebtTotal').textContent=won(familyDebt);
+    document.getElementById('familyDebtSection').hidden=familyDebt===0;
+    const marketOk=await histP;const z=await zP;const zPrev=await zPrevP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.filter(asset=>asset.asset_type!=='family_loan').reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+familyDebt+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a.filter(asset=>asset.asset_type!=='loan' && asset.asset_type!=='family_loan'),stockValue);
+    nw.textContent=won(netWorth);availableNw.textContent=won(available);loanTotal.textContent=won(totalLoans);loanPill.textContent='총부채 '+won(totalDebt);propertyEquity.textContent=won(PROPERTY_EQUITY);tenantDepositDebt.textContent='-'+won(tenantDeposits);
     const {income,expense}=monthlyCashFlow(tx,ym(now),z);const previous=monthlyCashFlow(tx,prevYM,zPrev);const prevRent=normalizeRent(zPrev)[0];
     const spendMeta=document.querySelector('#transactionsSection .section-meta');if(spendMeta)spendMeta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
     prevCfLabel.textContent='지난달 순현금흐름';prevMonthCF.textContent=won(previous.net);prevMonthCF.className='summary-value num '+(previous.net>=0?'good':'neg');prevMonthCFSub.textContent=monthLabel(prevDate)+' · 수입 '+won(previous.income)+' · 지출 '+won(previous.expense)+(prevRent.live?'':' · '+prevRent.status+' (수납 제외)');
@@ -660,7 +669,7 @@ async function saveStockEdit(){
 }
 async function seedStocks(){if(PREVIEW_MODE)return;seedBtn.disabled=true;try{const rows=INITIAL_STOCKS.map(x=>({ticker:x.ticker,quantity:x.quantity,avg_price:x.avg_price,market_value:x.market_value,pnl_pct:x.pnl_pct}));const r=await sb.from('securities').upsert(rows,{onConflict:'user_id,ticker'});if(r.error)throw r.error;seedBtn.textContent='저장 완료 ✓';await load()}catch(e){seedBtn.textContent='저장 실패';alert(e.message)}finally{setTimeout(()=>{seedBtn.disabled=false;seedBtn.textContent='포트폴리오 저장'},2200)}}
 
-function renderPreview(){auth.style.display='none';dash.style.display='block';updated.textContent='미리보기 · 실제 index는 Supabase 자동연동';liveHistory={};const stockValue=renderStocks(INITIAL_STOCKS);const rents=normalizeRent(null);renderRent(rents);const previewAccounts=[{name:'토스뱅크',value:1100219}];const accountTotal=previewAccounts.reduce((s,x)=>s+assetValue(x),0),tenant=93400000,totalLoans=STATIC_LOANS,totalAssets=accountTotal+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit,totalDebt=totalLoans+tenant,net=totalAssets-totalDebt;const available=renderAvailableAssets(previewAccounts,stockValue);nw.textContent=won(net);availableNw.textContent=won(available);prevCfLabel.textContent='지난달 순현금흐름';prevMonthCF.textContent='+620만';prevMonthCF.className='summary-value num good';prevMonthCFSub.textContent='수입 1,120만 · 지출 500만';loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);tenantDepositDebt.textContent='-'+won(tenant);propertyEquity.textContent=won(PROPERTY_EQUITY);monthTitle.textContent='9월 월별 결산';monthMeta.textContent='2026년 9월';monthIncome.textContent='1,307만';monthExpense.textContent='435만';monthCF.textContent='+872만';const fakeTx=[{occurred_at:'2026-09-05T10:00:00',amount:-135000,category:'식비',merchant:'이마트',account:'토스 부부생활비'},{occurred_at:'2026-09-04T19:00:00',amount:-78000,category:'쇼핑',merchant:'쿠팡',account:'토스 부부생활비'},{occurred_at:'2026-09-03T12:00:00',amount:-62000,category:'육아',merchant:'키즈샵',account:'롯데카드'},{occurred_at:'2026-09-02T09:00:00',amount:-47000,category:'교통',merchant:'주유',account:'현대카드'},{occurred_at:'2026-09-01T18:00:00',amount:-113000,category:'기타',merchant:'생활비',account:'K뱅크 체크카드'}];renderCategories(fakeTx);renderTransactions(fakeTx);const snaps=[];const vals=[480000000,495000000,510000000,525000000,535000000,555000000,570000000,585000000,600000000,612000000,626000000,net];for(let i=0;i<12;i++){const d=new Date(2025,9+i,1);snaps.push({snapshot_date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`,net_worth:vals[i]})}renderTrend(snaps,net);}
+function renderPreview(){auth.style.display='none';dash.style.display='block';updated.textContent='미리보기 · 실제 index는 Supabase 자동연동';liveHistory={};const stockValue=renderStocks(INITIAL_STOCKS);const rents=normalizeRent(null);renderRent(rents);const previewAccounts=[{name:'토스뱅크',value:1100219}];const accountTotal=previewAccounts.reduce((s,x)=>s+assetValue(x),0),tenant=93400000,totalLoans=STATIC_LOANS,totalAssets=accountTotal+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit,totalDebt=totalLoans+tenant,net=totalAssets-totalDebt;const available=renderAvailableAssets(previewAccounts,stockValue);nw.textContent=won(net);availableNw.textContent=won(available);prevCfLabel.textContent='지난달 순현금흐름';prevMonthCF.textContent='+620만';prevMonthCF.className='summary-value num good';prevMonthCFSub.textContent='수입 1,120만 · 지출 500만';loanTotal.textContent=won(totalLoans);loanPill.textContent='총부채 '+won(totalDebt);tenantDepositDebt.textContent='-'+won(tenant);propertyEquity.textContent=won(PROPERTY_EQUITY);monthTitle.textContent='9월 월별 결산';monthMeta.textContent='2026년 9월';monthIncome.textContent='1,307만';monthExpense.textContent='435만';monthCF.textContent='+872만';const fakeTx=[{occurred_at:'2026-09-05T10:00:00',amount:-135000,category:'식비',merchant:'이마트',account:'토스 부부생활비'},{occurred_at:'2026-09-04T19:00:00',amount:-78000,category:'쇼핑',merchant:'쿠팡',account:'토스 부부생활비'},{occurred_at:'2026-09-03T12:00:00',amount:-62000,category:'육아',merchant:'키즈샵',account:'롯데카드'},{occurred_at:'2026-09-02T09:00:00',amount:-47000,category:'교통',merchant:'주유',account:'현대카드'},{occurred_at:'2026-09-01T18:00:00',amount:-113000,category:'기타',merchant:'생활비',account:'K뱅크 체크카드'}];renderCategories(fakeTx);renderTransactions(fakeTx);const snaps=[];const vals=[480000000,495000000,510000000,525000000,535000000,555000000,570000000,585000000,600000000,612000000,626000000,net];for(let i=0;i<12;i++){const d=new Date(2025,9+i,1);snaps.push({snapshot_date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`,net_worth:vals[i]})}renderTrend(snaps,net);}
 
 if(PREVIEW_MODE){renderPreview()}else{sb.auth.onAuthStateChange((_e,s)=>show(!!s));sb.auth.getSession().then(r=>show(!!r.data.session));setInterval(()=>{if(dash.style.display!=='none'&&!document.hidden&&!window.__marketRefreshing){window.__marketRefreshing=true;Promise.resolve(load()).finally(()=>{window.__marketRefreshing=false})}},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&dash.style.display!=='none'&&!window.__marketRefreshing){window.__marketRefreshing=true;Promise.resolve(load()).finally(()=>{window.__marketRefreshing=false})}})}
 
