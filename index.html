@@ -246,10 +246,11 @@ h1{font-size:27px;line-height:1.08;margin:0;font-weight:860;letter-spacing:-.045
       <div class="loan-list">
         <div class="loan-row"><div class="loan-name">서희빌 주담대</div><div class="loan-amt num">3억 4,700만원</div><div class="loan-rate">3.81%</div></div>
         <div class="loan-row"><div class="loan-name">라움하우스 사업자대출</div><div class="loan-amt num">9억 2,000만원</div><div class="loan-rate">5.70%</div></div>
-        <div class="loan-row"><div class="loan-name">신용대출</div><div class="loan-amt num">7,440만원</div><div class="loan-rate">4.96%</div></div>
+        <div class="loan-row"><div class="loan-name">Sh더드림신용대출</div><div class="loan-amt num">7,440만원</div><div class="loan-rate">5.77%</div></div>
         <div class="loan-row"><div class="loan-name">송탄스테이</div><div class="loan-amt num" id="songtanLoanListAmount">-</div><div class="loan-rate" id="songtanLoanListRate">-</div></div>
+        <div id="additionalLoans"></div>
       </div>
-      <div class="liability-note" id="liabilityNote">임대보증금은 대출과 별도 부채로 순자산 계산에 반영합니다. 신규 예상대출 4,727만원은 미실행이므로 제외합니다.</div>
+      <div class="liability-note" id="liabilityNote">임대보증금은 대출과 별도 부채로 순자산 계산에 반영합니다.</div>
     </div>
 
     <div class="section-title" id="goalsSection"><h2>최근 12개월 순자산 추이</h2><span class="trend-badge" id="trendBadge">월말 자동 저장</span></div>
@@ -308,7 +309,6 @@ const CONFIG = {
     seohui:{name:'서희빌',propertyPk:811825,address:'경기 안성시 비룡2길 37-8',value:500000000,loan:347000000,rate:3.81,fallbackCharge:7770000,fallbackDeposit:61000000},
     raum:{name:'라움하우스',propertyPk:884400,value:1050000000,loan:920000000,rate:5.70,fallbackCharge:7410000,fallbackDeposit:32400000}
   },
-  expectedLoan:47270000,
   songtanFinancing:{name:'송탄스테이',purchasePrice:1904000000,loan:1610000000,annualRate:5.9,acquisitionTaxRate:4.6,paidDeposit:190000000}
 };
 const {loadZaritalk,normalizeRent,zaritalkPaidTotal,monthlyCashFlow}=FinanceCore.createCashFlow({client:sb,supabaseUrl:SUPABASE_URL,supabaseKey:SUPABASE_KEY,properties:CONFIG.properties});
@@ -359,6 +359,24 @@ function renderAvailableAssets(accountRows, stockValue){
 
 function won(n){n=Number(n||0);const a=Math.abs(n),s=n<0?'-':'';if(a>=100000000)return s+(a/100000000).toFixed(a%100000000?2:0)+'억';if(a>=10000)return s+Math.round(a/10000).toLocaleString('ko-KR')+'만';return s+a.toLocaleString('ko-KR')+'원'}
 function wonFull(n){return '₩'+Math.round(Number(n||0)).toLocaleString('ko-KR')}
+function renderAdditionalLoans(loans){
+  const rows=loans.map(loan=>{
+    const row=document.createElement('div');
+    row.className='loan-row';
+    for(const [className,value] of [
+      ['loan-name',loan.name],
+      ['loan-amt num',loan.debt%10000===0?(loan.debt/10000).toLocaleString('ko-KR')+'만원':wonFull(loan.debt)],
+      ['loan-rate',loan.liquid_value_note||'']
+    ]){
+      const cell=document.createElement('div');
+      cell.className=className;
+      cell.textContent=value;
+      row.append(cell);
+    }
+    return row;
+  });
+  document.getElementById('additionalLoans').replaceChildren(...rows);
+}
 function calculateSongtanFinancing(financing){
   const annualInterest=financing.loan*financing.annualRate/100;
   const ownFunds=financing.purchasePrice-financing.loan;
@@ -557,7 +575,8 @@ async function load(){
     const now=new Date();const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1);const prevYM=ym(prevDate);
     const histP=loadStockHistory(),zP=loadZaritalk(),zPrevP=loadZaritalk(prevYM);
     const [tx,a,s,snaps]=await Promise.all([q('transactions','occurred_at'),q('assets','updated_at'),q('securities','updated_at'),q('net_worth_snapshots','snapshot_date',true)]);
-    const marketOk=await histP;const z=await zP;const zPrev=await zPrevP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a,stockValue);
+    renderAdditionalLoans(a.filter(asset=>asset.asset_type==='loan' && asset.debt>0));
+    const marketOk=await histP;const z=await zP;const zPrev=await zPrevP;const stocks=s.length?s:INITIAL_STOCKS;const stockValue=renderStocks(stocks);const accountAssets=a.reduce((sum,x)=>sum+Math.max(0,assetValue(x)),0);const assetDebts=a.reduce((sum,x)=>sum+Number(x.debt||0),0);const rents=normalizeRent(z);renderRent(rents);const tenantDeposits=rents.reduce((sum,r)=>sum+Number(r.deposit||0),0);const totalLoans=STATIC_LOANS+assetDebts;const totalAssets=accountAssets+stockValue+PROPERTY_VALUE+CONFIG.residenceDeposit;const totalDebt=totalLoans+tenantDeposits;const netWorth=totalAssets-totalDebt;const available=renderAvailableAssets(a.filter(asset=>asset.asset_type!=='loan'),stockValue);
     nw.textContent=won(netWorth);availableNw.textContent=won(available);loanTotal.textContent=won(totalLoans);loanPill.textContent='총 대출 '+won(totalLoans);propertyEquity.textContent=won(PROPERTY_EQUITY);tenantDepositDebt.textContent='-'+won(tenantDeposits);
     const {income,expense}=monthlyCashFlow(tx,ym(now),z);const previous=monthlyCashFlow(tx,prevYM,zPrev);const prevRent=normalizeRent(zPrev)[0];
     const spendMeta=document.querySelector('#transactionsSection .section-meta');if(spendMeta)spendMeta.textContent='이번달 '+Math.round(Number(expense||0)).toLocaleString('ko-KR')+'원 사용';
